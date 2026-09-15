@@ -1,6 +1,7 @@
 import { useNavigate } from 'react-router-dom'
 import './index.css'
 
+
 function Home() {
   const navigate = useNavigate()
 
@@ -11,49 +12,70 @@ function Home() {
   return (
     <div className="home-page">
 
-      {/* NAVBAR */}
+      {/* =========================
+          NAVBAR
+      ========================= */}
       <header className="home-navbar">
         <div className="home-nav-inner">
 
           <div className="home-brand">
-            <div className="home-brand-logo">V</div>
+
+            <div className="home-brand-logo">
+           <img src="/vigilant_logo.png" alt="Vigilant Logo" />
+            </div>
 
             <div className="home-brand-text">
               <h2>Vigilant</h2>
               <span>Procurement Intelligence</span>
             </div>
+
           </div>
 
+
           <nav className="home-navigation">
+
             <button
-              onClick={() => navigate('/dashboard')}
+              type="button"
               className="nav-item"
+              onClick={() => navigate('/dashboard')}
             >
               Dashboard
             </button>
 
-            <a href="#how-it-works" className="nav-item">
+            <a
+              href="#how-it-works"
+              className="nav-item"
+            >
               How it works
             </a>
 
             <button
-              onClick={handleSignIn}
+              type="button"
               className="nav-signin"
+              onClick={handleSignIn}
             >
               Authorized Sign In
             </button>
+
           </nav>
 
         </div>
       </header>
 
 
-      {/* HERO */}
+      {/* =========================
+          MAIN
+      ========================= */}
       <main>
 
+        {/* =========================
+            HERO
+        ========================= */}
         <section className="hero-section">
+
           <div className="hero-inner">
 
+            {/* LEFT SIDE */}
             <div className="hero-content">
 
               <div className="eyebrow">
@@ -73,6 +95,7 @@ function Home() {
               </p>
 
               <button
+                type="button"
                 className="hero-button"
                 onClick={handleSignIn}
               >
@@ -87,72 +110,39 @@ function Home() {
             </div>
 
 
-            {/* HERO FEATURES */}
+            {/* RIGHT SIDE - SIMPLE POINTS */}
             <div className="hero-features">
 
               <div className="hero-feature">
-                <div className="feature-icon">
-              
-                </div>
-
-                <div className="feature-text">
-                  <h3>Unusual patterns</h3>
-                  <p>
-                    Detects activity that differs from expected
-                    procurement behavior.
-                  </p>
-                </div>
+                <span className="feature-dot">•</span>
+                <span>Detect unusual procurement patterns</span>
               </div>
 
-
               <div className="hero-feature">
-                <div className="feature-icon people-icon">
-                </div>
-
-                <div className="feature-text">
-                  <h3>Connected entities</h3>
-                  <p>
-                    Maps relationships between tenders, vendors,
-                    departments and participants.
-                  </p>
-                </div>
+                <span className="feature-dot">•</span>
+                <span>Connect tenders, vendors and departments</span>
               </div>
 
-
               <div className="hero-feature">
-                <div className="feature-icon document-icon">
-                  
-                </div>
-
-                <div className="feature-text">
-                  <h3>Evidence based</h3>
-                  <p>
-                    Provides relevant records and context for review.
-                  </p>
-                </div>
+                <span className="feature-dot">•</span>
+                <span>Review evidence and supporting records</span>
               </div>
 
-
               <div className="hero-feature">
-                <div className="feature-icon shield-icon">
-                  
-                </div>
-
-                <div className="feature-text">
-                  <h3>Investigation support</h3>
-                  <p>
-                    Helps prioritize cases for authorized review.
-                  </p>
-                </div>
+                <span className="feature-dot">•</span>
+                <span>Prioritize cases for investigation</span>
               </div>
 
             </div>
 
           </div>
+
         </section>
 
 
-        {/* HOW IT WORKS */}
+        {/* =========================
+            HOW IT WORKS
+        ========================= */}
         <section
           className="how-section"
           id="how-it-works"
@@ -188,6 +178,7 @@ function Home() {
 
                 <div className="process-content">
                   <h3>Collect</h3>
+
                   <p>
                     Tender, bidder, vendor and contract information.
                   </p>
@@ -208,6 +199,7 @@ function Home() {
 
                 <div className="process-content">
                   <h3>Analyze</h3>
+
                   <p>
                     Compare activity and identify unusual patterns.
                   </p>
@@ -228,6 +220,7 @@ function Home() {
 
                 <div className="process-content">
                   <h3>Connect</h3>
+
                   <p>
                     Map relationships between procurement entities.
                   </p>
@@ -248,6 +241,7 @@ function Home() {
 
                 <div className="process-content">
                   <h3>Investigate</h3>
+
                   <p>
                     Prioritize cases and review supporting evidence.
                   </p>
@@ -262,7 +256,9 @@ function Home() {
         </section>
 
 
-        {/* FINAL CTA */}
+        {/* =========================
+            FINAL CTA
+        ========================= */}
         <section className="final-cta">
 
           <div className="cta-container">
@@ -284,12 +280,19 @@ function Home() {
 
             </div>
 
+
             <button
+              type="button"
               className="cta-button"
               onClick={handleSignIn}
             >
-              <span>Enter Authorized Workspace</span>
-              <span className="button-arrow">→</span>
+              <span>
+                Enter Authorized Workspace
+              </span>
+
+              <span className="button-arrow">
+                →
+              </span>
             </button>
 
           </div>
@@ -299,7 +302,9 @@ function Home() {
       </main>
 
 
-      {/* FOOTER */}
+      {/* =========================
+          FOOTER
+      ========================= */}
       <footer className="home-footer">
 
         <div className="footer-inner">
