@@ -2,12 +2,7 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "functions": {
     "api/index.py": {
-      "includeFiles": [
-        "vigilant_dataset.csv",
-        "vigilant_training_dataset.csv",
-        "vigilant_model.json",
-        "feature_columns.json"
-      ]
+      "includeFiles": "{vigilant_dataset.csv,vigilant_training_dataset.csv,vigilant_model.json,feature_columns.json}"
     }
   }
 }
