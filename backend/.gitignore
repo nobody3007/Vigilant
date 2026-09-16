@@ -1,3 +1,8 @@
 venv/
+.venv/
 .env
+.env.*
+!.env.example
+.vercel/
 __pycache__/
+*.pyc

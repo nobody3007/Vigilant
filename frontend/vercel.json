@@ -1,35 +1,12 @@
 {
+  "$schema": "https://openapi.vercel.sh/vercel.json",
   "rewrites": [
     {
-      "source": "/dashboard",
-      "destination": "/index.html"
+      "source": "/api/:path*",
+      "destination": "https://vigilant-6sc2.vercel.app/api/:path*"
     },
     {
-      "source": "/login",
-      "destination": "/index.html"
-    },
-    {
-      "source": "/tenders",
-      "destination": "/index.html"
-    },
-    {
-      "source": "/vendors",
-      "destination": "/index.html"
-    },
-    {
-      "source": "/investigations",
-      "destination": "/index.html"
-    },
-    {
-      "source": "/network",
-      "destination": "/index.html"
-    },
-    {
-      "source": "/evidence",
-      "destination": "/index.html"
-    },
-    {
-      "source": "/case/:caseId",
+      "source": "/(.*)",
       "destination": "/index.html"
     }
   ]
