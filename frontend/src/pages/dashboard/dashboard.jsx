@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 
 import Sidebar from '../../components/Sidebar'
 import Topbar from '../../components/Topbar'
@@ -7,9 +7,7 @@ import StatCard from '../../components/StatCard'
 import CaseRow from '../../components/CaseRow'
 
 import {
-  stats,
   cases,
-  tenders,
   signalDistribution,
 } from '../../data/mockData'
 
@@ -18,6 +16,83 @@ import './dashboard.css'
 function Dashboard() {
   const navigate = useNavigate()
   const [activePage, setActivePage] = useState('dashboard')
+
+  const [dbTenders, setDbTenders] = useState([])
+  const [loadingTenders, setLoadingTenders] = useState(true)
+
+  useEffect(() => {
+    const fetchTenders = async () => {
+      try {
+        const response = await fetch('http://127.0.0.1:8000/api/tenders')
+
+        if (!response.ok) {
+          throw new Error('Failed to fetch tenders')
+        }
+
+        const data = await response.json()
+        setDbTenders(data)
+      } catch (error) {
+        console.error('Error fetching tenders:', error)
+      } finally {
+        setLoadingTenders(false)
+      }
+    }
+
+    fetchTenders()
+  }, [])
+
+  const totalTenders = dbTenders.length
+
+  const highPriority = dbTenders.filter(
+    (tender) => Number(tender.investigation_priority || 0) >= 70
+  ).length
+
+  const activeSignals = dbTenders.filter(
+    (tender) => Number(tender.investigation_priority || 0) >= 40
+  ).length
+
+  const vendorCount = new Set(
+    dbTenders
+      .map((tender) => tender.winningVendor)
+      .filter(Boolean)
+  ).size
+
+  const dynamicStats = [
+    {
+      label: 'Active Signals',
+      value: activeSignals,
+      description: 'Tenders currently requiring review',
+    },
+    {
+      label: 'High Priority',
+      value: highPriority,
+      description: 'Cases prioritized for closer examination',
+    },
+    {
+      label: 'Tenders Analyzed',
+      value: totalTenders,
+      description: 'Procurement records analyzed',
+    },
+    {
+      label: 'Vendors Mapped',
+      value: vendorCount,
+      description: 'Winning vendors represented in the database',
+    },
+  ]
+
+  const formatValue = (value) => {
+    const number = Number(value || 0)
+
+    if (number >= 10000000) {
+      return `₹${(number / 10000000).toFixed(2)} Cr`
+    }
+
+    if (number >= 100000) {
+      return `₹${(number / 100000).toFixed(2)} L`
+    }
+
+    return `₹${number.toLocaleString('en-IN')}`
+  }
 
   const handleNavigation = (page) => {
     if (page === 'dashboard') {
@@ -66,7 +141,7 @@ function Dashboard() {
 
             {/* KPI SECTION */}
             <section className="stats-grid">
-              {stats.map((stat, index) => (
+              {dynamicStats.map((stat, index) => (
                 <StatCard
                   key={stat.label}
                   label={stat.label}
@@ -86,102 +161,78 @@ function Dashboard() {
                 <div className="panel-header">
                   <div>
                     <span className="panel-eyebrow">
-                      PROCUREMENT ACTIVITY
+                      HIGH PRIORITY ANALYSIS
                     </span>
 
-                    <h2>Analysis activity</h2>
+                    <h2>Top contributing parameters</h2>
+
+                    <p className="contribution-subtitle">
+                      Strongest signals contributing to investigation priority.
+                    </p>
                   </div>
 
                   <span className="panel-period">
-                    LAST 30 DAYS
+                    SAMPLE ANALYSIS
                   </span>
                 </div>
 
-                <div className="activity-chart">
+                <div className="contribution-chart">
 
-                  <div className="chart-y-axis">
-                    <span>300</span>
-                    <span>200</span>
-                    <span>100</span>
-                    <span>0</span>
-                  </div>
+                  <div className="histogram-chart">
 
-                  <div className="chart-area">
+                    <div className="histogram-y-axis">
+                      <span>30</span>
+                      <span>20</span>
+                      <span>10</span>
+                      <span>0</span>
+                    </div>
 
-                    <div className="chart-grid-line" />
-                    <div className="chart-grid-line" />
-                    <div className="chart-grid-line" />
-                    <div className="chart-grid-line" />
+                    <div className="histogram-main">
 
-                    <svg
-                      className="activity-line"
-                      viewBox="0 0 800 240"
-                      preserveAspectRatio="none"
-                    >
-                      <polyline
-                        points="
-                          0,195
-                          70,175
-                          140,185
-                          210,135
-                          280,150
-                          350,105
-                          420,125
-                          490,90
-                          560,110
-                          630,62
-                          700,80
-                          800,38
-                        "
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="3"
-                      />
+                      <div className="histogram-grid">
+                        <span></span>
+                        <span></span>
+                        <span></span>
+                        <span></span>
+                      </div>
 
-                      <polyline
-                        points="
-                          0,225
-                          70,215
-                          140,220
-                          210,195
-                          280,205
-                          350,180
-                          420,188
-                          490,165
-                          560,174
-                          630,145
-                          700,152
-                          800,130
-                        "
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        strokeDasharray="6 7"
-                        opacity="0.35"
-                      />
-                    </svg>
+                      <div className="histogram-bars">
 
-                    <div className="chart-x-axis">
-                      <span>18 AUG</span>
-                      <span>25 AUG</span>
-                      <span>01 SEP</span>
-                      <span>08 SEP</span>
-                      <span>15 SEP</span>
+                        <div className="histogram-column">
+                          <div className="histogram-value">+24.3</div>
+                          <div className="histogram-bar" style={{ height: '81%' }}></div>
+                          <div className="histogram-label">
+                            Price vs Comparable
+                          </div>
+                        </div>
+
+                        <div className="histogram-column">
+                          <div className="histogram-value">+18.7</div>
+                          <div className="histogram-bar" style={{ height: '62%' }}></div>
+                          <div className="histogram-label">
+                            Bid Similarity
+                          </div>
+                        </div>
+
+                        <div className="histogram-column">
+                          <div className="histogram-value">+11.2</div>
+                          <div className="histogram-bar" style={{ height: '37%' }}></div>
+                          <div className="histogram-label">
+                            Historical Win Rate
+                          </div>
+                        </div>
+
+                      </div>
+
                     </div>
 
                   </div>
+
                 </div>
 
-                <div className="chart-legend">
-                  <span>
-                    <i className="legend-solid" />
-                    Tenders analyzed
-                  </span>
-
-                  <span>
-                    <i className="legend-dashed" />
-                    Signals generated
-                  </span>
+                <div className="contribution-note">
+                  These signals represent factors contributing to investigation
+                  priority. They are not determinations of wrongdoing.
                 </div>
 
               </div>
@@ -342,37 +393,61 @@ function Dashboard() {
 
                 <div className="tender-list">
 
-                  {tenders.map((tender) => (
-                    <div
-                      className="tender-item"
-                      key={tender.id}
-                    >
-
-                      <div className="tender-id">
-                        {tender.id}
-                      </div>
-
+                  {loadingTenders ? (
+                    <div className="tender-item">
                       <div className="tender-info">
-                        <strong>{tender.title}</strong>
-                        <span>{tender.department}</span>
+                        <strong>Loading tenders...</strong>
+                        <span>Fetching procurement records from MongoDB</span>
                       </div>
-
-                      <div className="tender-value">
-                        {tender.value}
-                      </div>
-
-                      <span
-                        className={`tender-status ${
-                          tender.status
-                            .toLowerCase()
-                            .replaceAll(' ', '-')
-                        }`}
-                      >
-                        {tender.status}
-                      </span>
-
                     </div>
-                  ))}
+                  ) : dbTenders.length === 0 ? (
+                    <div className="tender-item">
+                      <div className="tender-info">
+                        <strong>No tenders available</strong>
+                        <span>Add tender information to populate this section.</span>
+                      </div>
+                    </div>
+                  ) : (
+                    dbTenders
+                    .slice()
+                    .reverse()
+                    .slice(0, 5)
+                    .map((tender) => {
+                      const score = Number(tender.investigation_priority || 0)
+
+                      const isFlagged = score > 50
+
+                        return (
+                          <div
+                            className="tender-item"
+                            key={tender._id || tender.tenderId}
+                          >
+                            <div className="tender-id">
+                              {tender.tenderId}
+                            </div>
+
+                            <div className="tender-info">
+                              <strong>{tender.category}</strong>
+                              <span>
+                                {tender.department} · {tender.location}
+                              </span>
+                            </div>
+
+                            <div className="tender-value">
+                              {formatValue(tender.contractValue)}
+                            </div>
+
+                            <span
+                              className={`tender-status ${
+                                isFlagged ? 'flagged' : 'normal'
+                              }`}
+                            >
+                              {isFlagged ? 'Flagged for Review' : 'Normal'}
+                            </span>
+                          </div>
+                        )
+                      })
+                  )}
 
                 </div>
 
