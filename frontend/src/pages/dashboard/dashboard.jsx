@@ -12,7 +12,7 @@ function Dashboard() {
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(true)
 
-  const API_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000'
+  const API_URL = 'https://vigilant-6sc2.vercel.app'
 
   useEffect(() => {
     fetch(`${API_URL}/api/dashboard`)
