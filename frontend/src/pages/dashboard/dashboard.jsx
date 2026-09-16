@@ -1,335 +1,126 @@
+﻿import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useEffect, useState } from 'react'
 
 import Sidebar from '../../components/Sidebar'
 import Topbar from '../../components/Topbar'
-import StatCard from '../../components/StatCard'
 import CaseRow from '../../components/CaseRow'
-
-import {
-  cases,
-  signalDistribution,
-} from '../../data/mockData'
 
 import './dashboard.css'
 
 function Dashboard() {
   const navigate = useNavigate()
-  const [activePage, setActivePage] = useState('dashboard')
-
-  const [dbTenders, setDbTenders] = useState([])
-  const [loadingTenders, setLoadingTenders] = useState(true)
+  const [data, setData] = useState(null)
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    const fetchTenders = async () => {
-      try {
-        const response = await fetch('http://127.0.0.1:8000/api/tenders')
-
-        if (!response.ok) {
-          throw new Error('Failed to fetch tenders')
-        }
-
-        const data = await response.json()
-        setDbTenders(data)
-      } catch (error) {
-        console.error('Error fetching tenders:', error)
-      } finally {
-        setLoadingTenders(false)
-      }
-    }
-
-    fetchTenders()
+    fetch('http://127.0.0.1:8000/api/dashboard')
+      .then((res) => {
+        if (!res.ok) throw new Error('Dashboard API failed')
+        return res.json()
+      })
+      .then(setData)
+      .catch((err) => console.error(err))
+      .finally(() => setLoading(false))
   }, [])
 
-  const totalTenders = dbTenders.length
-
-  const highPriority = dbTenders.filter(
-    (tender) => Number(tender.investigation_priority || 0) >= 70
-  ).length
-
-  const activeSignals = dbTenders.filter(
-    (tender) => Number(tender.investigation_priority || 0) >= 40
-  ).length
-
-  const vendorCount = new Set(
-    dbTenders
-      .map((tender) => tender.winningVendor)
-      .filter(Boolean)
-  ).size
-
-  const dynamicStats = [
-    {
-      label: 'Active Signals',
-      value: activeSignals,
-      description: 'Tenders currently requiring review',
-    },
-    {
-      label: 'High Priority',
-      value: highPriority,
-      description: 'Cases prioritized for closer examination',
-    },
-    {
-      label: 'Tenders Analyzed',
-      value: totalTenders,
-      description: 'Procurement records analyzed',
-    },
-    {
-      label: 'Vendors Mapped',
-      value: vendorCount,
-      description: 'Winning vendors represented in the database',
-    },
-  ]
-
-  const formatValue = (value) => {
-    const number = Number(value || 0)
-
-    if (number >= 10000000) {
-      return `₹${(number / 10000000).toFixed(2)} Cr`
-    }
-
-    if (number >= 100000) {
-      return `₹${(number / 100000).toFixed(2)} L`
-    }
-
-    return `₹${number.toLocaleString('en-IN')}`
+  if (loading || !data) {
+    return (
+      <div className="dashboard-layout">
+        <Sidebar />
+        <main className="dashboard-main">
+          <Topbar activePage="dashboard" />
+          <div className="dashboard-content">
+            Loading dashboard...
+          </div>
+        </main>
+      </div>
+    )
   }
 
-  const handleNavigation = (page) => {
-    if (page === 'dashboard') {
-      navigate('/dashboard')
-      return
-    }
+  const summary = data.summary || {}
+  const cases = data.priorityCases || []
+  const recent = data.recentTenders || []
+  const signals = data.signalDistribution || []
 
-    if (page === 'investigations') {
-      navigate('/investigations')
-      return
-    }
-
-    if (page === 'network') {
-      navigate('/network')
-      return
-    }
-
-    setActivePage(page)
+  const priority = (score) => {
+    const s = Number(score || 0)
+    return s >= 75 ? 'High' : s >= 50 ? 'Medium' : 'Low'
   }
 
-  const handleAddTender = () => {
-    navigate('/add-tender')
-  }
-
-  const handleCaseClick = (caseData) => {
-    navigate('/case/' + caseData.id)
+  const money = (value) => {
+    const n = Number(value || 0)
+    return `\u20B9${(n / 10000000).toFixed(2)} Cr`
   }
 
   return (
     <div className="dashboard-layout">
-
-      <Sidebar
-        activePage={activePage}
-        onNavigate={handleNavigation}
-      />
+      <Sidebar />
 
       <main className="dashboard-main">
+        <Topbar activePage="dashboard" />
 
-        <Topbar
-          activePage={activePage}
-          onAddTender={handleAddTender}
-        />
+        <div className="dashboard-content">
 
-        {activePage === 'dashboard' && (
-          <div className="dashboard-content">
+          <section className="stats-grid">
 
-            {/* KPI SECTION */}
-            <section className="stats-grid">
-              {dynamicStats.map((stat, index) => (
-                <StatCard
-                  key={stat.label}
-                  label={stat.label}
-                  value={stat.value}
-                  description={stat.description}
-                  index={index + 1}
-                />
-              ))}
-            </section>
-
-
-            {/* ACTIVITY + RISK */}
-            <section className="analytics-grid">
-
-              <div className="dashboard-panel activity-panel">
-
-                <div className="panel-header">
-                  <div>
-                    <span className="panel-eyebrow">
-                      HIGH PRIORITY ANALYSIS
-                    </span>
-
-                    <h2>Top contributing parameters</h2>
-
-                    <p className="contribution-subtitle">
-                      Strongest signals contributing to investigation priority.
-                    </p>
-                  </div>
-
-                  <span className="panel-period">
-                    SAMPLE ANALYSIS
-                  </span>
-                </div>
-
-                <div className="contribution-chart">
-
-                  <div className="histogram-chart">
-
-                    <div className="histogram-y-axis">
-                      <span>30</span>
-                      <span>20</span>
-                      <span>10</span>
-                      <span>0</span>
-                    </div>
-
-                    <div className="histogram-main">
-
-                      <div className="histogram-grid">
-                        <span></span>
-                        <span></span>
-                        <span></span>
-                        <span></span>
-                      </div>
-
-                      <div className="histogram-bars">
-
-                        <div className="histogram-column">
-                          <div className="histogram-value">+24.3</div>
-                          <div className="histogram-bar" style={{ height: '81%' }}></div>
-                          <div className="histogram-label">
-                            Price vs Comparable
-                          </div>
-                        </div>
-
-                        <div className="histogram-column">
-                          <div className="histogram-value">+18.7</div>
-                          <div className="histogram-bar" style={{ height: '62%' }}></div>
-                          <div className="histogram-label">
-                            Bid Similarity
-                          </div>
-                        </div>
-
-                        <div className="histogram-column">
-                          <div className="histogram-value">+11.2</div>
-                          <div className="histogram-bar" style={{ height: '37%' }}></div>
-                          <div className="histogram-label">
-                            Historical Win Rate
-                          </div>
-                        </div>
-
-                      </div>
-
-                    </div>
-
-                  </div>
-
-                </div>
-
-                <div className="contribution-note">
-                  These signals represent factors contributing to investigation
-                  priority. They are not determinations of wrongdoing.
-                </div>
-
+            <div className="dashboard-stat stat-blue">
+              <div className="stat-top">
+                <span>ACTIVE SIGNALS</span>
+                <small>01</small>
               </div>
+              <strong>
+                {Number(summary.activeSignals || 0).toLocaleString('en-IN')}
+              </strong>
+              <p>Detected signals across procurement records</p>
+            </div>
 
-
-              <div className="dashboard-panel risk-panel">
-
-                <div className="panel-header">
-                  <div>
-                    <span className="panel-eyebrow">
-                      RISK DISTRIBUTION
-                    </span>
-
-                    <h2>Priority breakdown</h2>
-                  </div>
-                </div>
-
-                <div className="risk-summary">
-
-                  <div className="risk-total">
-                    <strong>24</strong>
-                    <span>active signals</span>
-                  </div>
-
-                  <div className="risk-bars">
-
-                    <div className="risk-row">
-                      <div>
-                        <span>High</span>
-                        <strong>7</strong>
-                      </div>
-
-                      <div className="risk-track">
-                        <div
-                          className="risk-fill risk-high"
-                          style={{ width: '29%' }}
-                        />
-                      </div>
-                    </div>
-
-                    <div className="risk-row">
-                      <div>
-                        <span>Medium</span>
-                        <strong>9</strong>
-                      </div>
-
-                      <div className="risk-track">
-                        <div
-                          className="risk-fill risk-medium"
-                          style={{ width: '38%' }}
-                        />
-                      </div>
-                    </div>
-
-                    <div className="risk-row">
-                      <div>
-                        <span>Low</span>
-                        <strong>8</strong>
-                      </div>
-
-                      <div className="risk-track">
-                        <div
-                          className="risk-fill risk-low"
-                          style={{ width: '33%' }}
-                        />
-                      </div>
-                    </div>
-
-                  </div>
-
-                </div>
-
-                <div className="risk-note">
-                  Priority reflects the combination of observed signals,
-                  not a determination of wrongdoing.
-                </div>
-
+            <div className="dashboard-stat stat-red">
+              <div className="stat-top">
+                <span>HIGH PRIORITY</span>
+                <small>02</small>
               </div>
+              <strong>
+                {Number(summary.highPriority || 0).toLocaleString('en-IN')}
+              </strong>
+              <p>Cases prioritized for closer examination</p>
+            </div>
 
-            </section>
+            <div className="dashboard-stat">
+              <div className="stat-top">
+                <span>TENDERS ANALYZED</span>
+                <small>03</small>
+              </div>
+              <strong>
+                {Number(summary.analyzedTenders || 0).toLocaleString('en-IN')}
+              </strong>
+              <p>Procurement records analyzed</p>
+            </div>
 
+            <div className="dashboard-stat">
+              <div className="stat-top">
+                <span>VENDORS MAPPED</span>
+                <small>04</small>
+              </div>
+              <strong>
+                {Number(summary.totalVendors || 0).toLocaleString('en-IN')}
+              </strong>
+              <p>Winning vendors represented in the database</p>
+            </div>
 
-            {/* PRIORITY QUEUE */}
-            <section className="dashboard-panel priority-panel">
+          </section>
+
+          <section className="analytics-grid">
+
+            <div className="dashboard-panel priority-panel">
 
               <div className="panel-header">
-
                 <div>
                   <span className="panel-eyebrow">
                     INVESTIGATOR QUEUE
                   </span>
-
                   <h2>Priority investigations</h2>
-
                   <p>
-                    Cases requiring the closest review based on current
-                    procurement signals.
+                    Cases requiring closer review based on observed procurement signals.
                   </p>
                 </div>
 
@@ -337,9 +128,8 @@ function Dashboard() {
                   className="text-button"
                   onClick={() => navigate('/investigations')}
                 >
-                  View all investigations →
+                  View all investigations {'\u2192'}
                 </button>
-
               </div>
 
               <div className="case-table">
@@ -350,232 +140,243 @@ function Dashboard() {
                   <span>SCORE</span>
                   <span>VALUE</span>
                   <span>PRIORITY</span>
-                  <span />
+                  <span></span>
                 </div>
 
-                {cases.map((caseData) => (
-                  <CaseRow
-                    key={caseData.id}
-                    caseData={caseData}
-                    onClick={() => handleCaseClick(caseData)}
-                  />
+                {cases.slice(0, 5).map((tender) => {
+                  const score = Number(tender.investigation_priority || 0)
+
+                  return (
+                    <CaseRow
+                      key={tender._id || tender.tenderId}
+                      caseData={{
+                        id: `INV-${tender.tenderId}`,
+                        tenderId: tender.tenderId,
+                        signal:
+                          tender.signals?.[0]?.name ||
+                          'Procurement anomaly signal',
+                        score,
+                        value: money(tender.contractValue),
+                        priority: priority(score),
+                        vendor: tender.winningVendor,
+                        department: tender.department,
+                      }}
+                      onClick={() =>
+                        navigate(`/case/INV-${tender.tenderId}`)
+                      }
+                    />
+                  )
+                })}
+
+              </div>
+            </div>
+
+            <div className="dashboard-panel risk-panel">
+
+              <div className="panel-header">
+                <div>
+                  <span className="panel-eyebrow">
+                    RISK DISTRIBUTION
+                  </span>
+                  <h2>Priority breakdown</h2>
+                </div>
+              </div>
+
+              <div className="risk-summary">
+
+                <div className="risk-total">
+                  <strong>
+                    {Number(summary.analyzedTenders || 0).toLocaleString('en-IN')}
+                  </strong>
+                  <span>tenders analyzed</span>
+                </div>
+
+                <div className="risk-bars">
+
+                  {[
+                    ['High', summary.highPriority, 'risk-high'],
+                    ['Medium', summary.mediumPriority, 'risk-medium'],
+                    ['Low', summary.lowPriority, 'risk-low'],
+                  ].map(([name, count, cls]) => {
+
+                    const total =
+                      Number(summary.highPriority || 0) +
+                      Number(summary.mediumPriority || 0) +
+                      Number(summary.lowPriority || 0)
+
+                    const width = total
+                      ? (Number(count || 0) / total) * 100
+                      : 0
+
+                    return (
+                      <div className="risk-row" key={name}>
+
+                        <div>
+                          <span>{name}</span>
+                          <strong>
+                            {Number(count || 0).toLocaleString('en-IN')}
+                          </strong>
+                        </div>
+
+                        <div className="risk-track">
+                          <div
+                            className={`risk-fill ${cls}`}
+                            style={{ width: `${width}%` }}
+                          />
+                        </div>
+
+                      </div>
+                    )
+                  })}
+
+                </div>
+              </div>
+
+              <div className="risk-note">
+                Priority reflects the combination of observed signals,
+                not a determination of wrongdoing.
+              </div>
+
+            </div>
+
+          </section>
+
+          <section className="lower-grid">
+
+            <div className="dashboard-panel">
+
+              <div className="panel-header">
+                <div>
+                  <span className="panel-eyebrow">
+                    RECENT ACTIVITY
+                  </span>
+                  <h2>Recent tenders</h2>
+                </div>
+
+                <button
+                  className="text-button"
+                  onClick={() => navigate('/tenders')}
+                >
+                  View all {'\u2192'}
+                </button>
+              </div>
+
+              <div className="tender-list">
+
+                {recent.slice(0, 5).map((tender) => (
+                  <button
+                    className="tender-item"
+                    key={tender._id || tender.tenderId}
+                    onClick={() =>
+                      navigate(`/case/INV-${tender.tenderId}`)
+                    }
+                  >
+
+                    <div className="tender-id">
+                      {tender.tenderId}
+                    </div>
+
+                    <div className="tender-info">
+                      <strong>
+                        {tender.category || 'Procurement Tender'}
+                      </strong>
+                      <span>
+                        {tender.department} {'\u00B7'} {tender.location}
+                      </span>
+                    </div>
+
+                    <div className="tender-value">
+                      {money(tender.contractValue)}
+                    </div>
+
+                    <span
+                      className={`tender-status ${priority(
+                        tender.investigation_priority
+                      ).toLowerCase()}`}
+                    >
+                      {priority(tender.investigation_priority)}
+                    </span>
+
+                  </button>
+                ))}
+
+              </div>
+            </div>
+
+            <div className="dashboard-panel signal-panel">
+
+              <div className="panel-header">
+                <div>
+                  <span className="panel-eyebrow">
+                    SIGNAL ANALYSIS
+                  </span>
+                  <h2>What is being detected?</h2>
+                </div>
+
+                <button
+                  className="text-button"
+                  onClick={() => navigate('/evidence')}
+                >
+                  Evidence {'\u2192'}
+                </button>
+              </div>
+
+              <div className="signal-list">
+
+                {signals.map((signal) => (
+                  <div className="signal-item" key={signal.name}>
+
+                    <div className="signal-info">
+
+                      <div>
+                        <strong>{signal.name}</strong>
+                        <span>
+                          {Number(signal.count || 0).toLocaleString('en-IN')}
+                          {' '}active cases
+                        </span>
+                      </div>
+
+                      <b>{signal.percentage}%</b>
+
+                    </div>
+
+                    <div className="signal-track">
+                      <div
+                        className="signal-fill"
+                        style={{
+                          width: `${signal.percentage}%`,
+                        }}
+                      />
+                    </div>
+
+                  </div>
                 ))}
 
               </div>
 
-            </section>
-
-
-            {/* LOWER SECTION */}
-            <section className="lower-grid">
-
-              {/* RECENT TENDERS */}
-              <div className="dashboard-panel">
-
-                <div className="panel-header">
-
-                  <div>
-                    <span className="panel-eyebrow">
-                      RECENT ACTIVITY
-                    </span>
-
-                    <h2>Recent tenders</h2>
-                  </div>
-
-                  <button
-                    className="text-button"
-                    onClick={() => setActivePage('tenders')}
-                  >
-                    View all →
-                  </button>
-
-                </div>
-
-                <div className="tender-list">
-
-                  {loadingTenders ? (
-                    <div className="tender-item">
-                      <div className="tender-info">
-                        <strong>Loading tenders...</strong>
-                        <span>Fetching procurement records from MongoDB</span>
-                      </div>
-                    </div>
-                  ) : dbTenders.length === 0 ? (
-                    <div className="tender-item">
-                      <div className="tender-info">
-                        <strong>No tenders available</strong>
-                        <span>Add tender information to populate this section.</span>
-                      </div>
-                    </div>
-                  ) : (
-                    dbTenders
-                    .slice()
-                    .reverse()
-                    .slice(0, 5)
-                    .map((tender) => {
-                      const score = Number(tender.investigation_priority || 0)
-
-                      const isFlagged = score > 50
-
-                        return (
-                          <div
-                            className="tender-item"
-                            key={tender._id || tender.tenderId}
-                          >
-                            <div className="tender-id">
-                              {tender.tenderId}
-                            </div>
-
-                            <div className="tender-info">
-                              <strong>{tender.category}</strong>
-                              <span>
-                                {tender.department} · {tender.location}
-                              </span>
-                            </div>
-
-                            <div className="tender-value">
-                              {formatValue(tender.contractValue)}
-                            </div>
-
-                            <span
-                              className={`tender-status ${
-                                isFlagged ? 'flagged' : 'normal'
-                              }`}
-                            >
-                              {isFlagged ? 'Flagged for Review' : 'Normal'}
-                            </span>
-                          </div>
-                        )
-                      })
-                  )}
-
-                </div>
-
-              </div>
-
-
-              {/* SIGNAL DISTRIBUTION */}
-              <div className="dashboard-panel">
-
-                <div className="panel-header">
-
-                  <div>
-                    <span className="panel-eyebrow">
-                      SIGNAL ANALYSIS
-                    </span>
-
-                    <h2>What is being detected?</h2>
-                  </div>
-
-                  <button
-                    className="text-button"
-                    onClick={() => setActivePage('evidence')}
-                  >
-                    Evidence →
-                  </button>
-
-                </div>
-
-                <div className="signal-list">
-
-                  {signalDistribution.map((signal) => (
-                    <div
-                      className="signal-item"
-                      key={signal.name}
-                    >
-
-                      <div className="signal-info">
-
-                        <div>
-                          <strong>{signal.name}</strong>
-
-                          <span>
-                            {signal.count} active cases
-                          </span>
-                        </div>
-
-                        <b>{signal.percentage}%</b>
-
-                      </div>
-
-                      <div className="signal-track">
-                        <div
-                          className="signal-fill"
-                          style={{
-                            width: `${signal.percentage}%`,
-                          }}
-                        />
-                      </div>
-
-                    </div>
-                  ))}
-
-                </div>
-
-              </div>
-
-            </section>
-
-
-            {/* DISCLAIMER */}
-            <div className="dashboard-disclaimer">
-
-              <div className="disclaimer-icon">
-                i
-              </div>
-
-              <div>
-                <strong>
-                  Investigation support, not automated accusations.
-                </strong>
-
-                <span>
-                  Signals identify activity that deserves closer review.
-                  They do not establish wrongdoing or corruption.
-                </span>
-              </div>
-
             </div>
 
-          </div>
-        )}
+          </section>
 
-        {activePage !== 'dashboard' && (
-          <div className="placeholder-page">
+          <div className="dashboard-disclaimer">
+            <div className="disclaimer-icon">i</div>
 
-            <div className="placeholder-number">
-              {activePage === 'tenders' && '03'}
-              {activePage === 'vendors' && '04'}
-              {activePage === 'network' && '05'}
-              {activePage === 'evidence' && '06'}
+            <div>
+              <strong>
+                Investigation support, not automated accusations.
+              </strong>
+              <span>
+                Signals identify activity that deserves closer review.
+                They do not establish wrongdoing or corruption.
+              </span>
             </div>
-
-            <span>MODULE UNDER CONSTRUCTION</span>
-
-            <h2>
-              {activePage.charAt(0).toUpperCase() +
-                activePage.slice(1)}
-            </h2>
-
-            <p>
-              This investigation module will be connected to the
-              Vigilant analysis engine next.
-            </p>
-
-            <button
-              className="back-dashboard-button"
-              onClick={() => setActivePage('dashboard')}
-            >
-              ← Back to dashboard
-            </button>
-
           </div>
-        )}
 
+        </div>
       </main>
-
     </div>
   )
 }
 
 export default Dashboard
+
