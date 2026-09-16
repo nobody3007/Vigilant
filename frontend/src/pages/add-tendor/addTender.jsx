@@ -26,16 +26,51 @@ function AddTender() {
     })
   }
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault()
 
-    // Prototype behaviour
-    console.log('Tender Information:', formData)
+    try {
+      const response = await fetch('http://localhost:8000/api/tenders', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          tenderId: formData.tenderId,
+          department: formData.department,
+          category: formData.category,
+          location: formData.location,
+          estimatedValue: Number(formData.estimatedValue),
+          contractValue: Number(formData.contractValue),
+          numberOfBidders: Number(formData.numberOfBidders),
+          winningVendor: formData.winningVendor,
+          vendorSpecialization: formData.vendorSpecialization
+        })
+      })
 
-    alert('Tender information added successfully.')
+      const data = await response.json()
 
-    navigate('/dashboard')
+      if (!response.ok) {
+        throw new Error(data.detail || 'Failed to add tender')
+      }
+
+      console.log('Tender saved:', data)
+
+      alert(
+        `Tender information added successfully!\n\nInvestigation Priority: ${data.investigationPriority} / 100`
+      )
+
+      navigate('/dashboard')
+
+    } catch (error) {
+      console.error('Error adding tender:', error)
+
+      alert(
+        `Failed to save tender information.\n\n${error.message}`
+      )
+    }
   }
+
 
   return (
     <div className="add-tender-page">
