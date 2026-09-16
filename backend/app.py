@@ -50,12 +50,14 @@ DATASET_CANDIDATES = [
 # ============================================================
 
 model = None
+model_error = None
 
 try:
     model = xgb.XGBRegressor()
     model.load_model(MODEL_PATH)
     print("ML model loaded successfully")
 except Exception as error:
+    model_error = str(error)
     print("ERROR loading ML model:", error)
 
 
@@ -343,11 +345,13 @@ def health():
     return {
         "status": "ok",
         "model_loaded": model is not None,
+        "model_file_exists": os.path.exists(MODEL_PATH),
+        "model_path": MODEL_PATH,
+        "model_error": model_error,
         "dataset_loaded": not dataset.empty,
         "tenders_analyzed": int(len(analysis_data)),
         "model_features": len(feature_columns),
     }
-
 
 # ============================================================
 # DASHBOARD
