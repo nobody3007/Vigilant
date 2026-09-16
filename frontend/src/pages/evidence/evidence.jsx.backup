@@ -1,0 +1,595 @@
+﻿import { useEffect, useMemo, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
+
+import Sidebar from '../../components/Sidebar'
+import Topbar from '../../components/Topbar'
+
+import './evidence.css'
+
+function Evidence() {
+  const navigate = useNavigate()
+
+  const [tenders, setTenders] = useState([])
+  const [selectedId, setSelectedId] = useState('')
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    fetch('http://127.0.0.1:8000/api/tenders')
+      .then((response) => {
+        if (!response.ok) {
+          throw new Error('Unable to load procurement records')
+        }
+
+        return response.json()
+      })
+      .then((data) => {
+        const records = Array.isArray(data) ? data : []
+
+        setTenders(records)
+
+        if (records.length > 0) {
+          setSelectedId(records[0]._id || records[0].tenderId)
+        }
+      })
+      .catch((error) => {
+        console.error('Evidence API error:', error)
+        setTenders([])
+      })
+      .finally(() => {
+        setLoading(false)
+      })
+  }, [])
+
+  const selectedTender = useMemo(() => {
+    return tenders.find(
+      (tender) =>
+        (tender._id || tender.tenderId) === selectedId
+    ) || tenders[0]
+  }, [tenders, selectedId])
+
+  const score = Number(
+    selectedTender?.investigation_priority || 0
+  )
+
+  const priority =
+    score >= 75
+      ? 'HIGH'
+      : score >= 50
+        ? 'MEDIUM'
+        : 'LOW'
+
+  const priceDeviation = selectedTender
+    ? (
+        (
+          (Number(selectedTender.contractValue || 0) -
+            Number(selectedTender.estimatedValue || 0)) /
+          Math.max(Number(selectedTender.estimatedValue || 1), 1)
+        ) * 100
+      )
+    : 0
+
+  const formatCurrency = (value) => {
+    const number = Number(value || 0)
+
+    if (number >= 10000000) {
+      return `₹${(number / 10000000).toFixed(2)} Cr`
+    }
+
+    if (number >= 100000) {
+      return `₹${(number / 100000).toFixed(2)} L`
+    }
+
+    return `₹${number.toLocaleString('en-IN')}`
+  }
+
+  if (loading) {
+    return (
+      <div className="evidence-page">
+        <Sidebar />
+
+        <main className="evidence-main">
+          <Topbar
+            activePage="evidence"
+            onAddTender={() => navigate('/add-tender')}
+          />
+
+          <div className="evidence-loading">
+            Loading evidence repository...
+          </div>
+        </main>
+      </div>
+    )
+  }
+
+  if (!selectedTender) {
+    return (
+      <div className="evidence-page">
+        <Sidebar />
+
+        <main className="evidence-main">
+          <Topbar
+            activePage="evidence"
+            onAddTender={() => navigate('/add-tender')}
+          />
+
+          <div className="evidence-empty">
+            <span className="evidence-eyebrow">
+              EVIDENCE VIEW
+            </span>
+
+            <h1>No procurement evidence</h1>
+
+            <p>
+              Add a tender record to generate investigation evidence.
+            </p>
+
+            <button
+              onClick={() => navigate('/add-tender')}
+            >
+              Add tender information →
+            </button>
+          </div>
+        </main>
+      </div>
+    )
+  }
+
+  const evidence = [
+    {
+      number: '01',
+      label: 'RAW PROCUREMENT DATA',
+      title: 'Contract value',
+      value: formatCurrency(selectedTender.contractValue),
+      detail:
+        `Estimated value: ${formatCurrency(selectedTender.estimatedValue)}. ` +
+        `Observed contract value: ${formatCurrency(selectedTender.contractValue)}.`,
+    },
+    {
+      number: '02',
+      label: 'DERIVED SIGNAL',
+      title: 'Value deviation',
+      value:
+        `${priceDeviation >= 0 ? '+' : ''}${priceDeviation.toFixed(1)}%`,
+      detail:
+        'Difference between the observed contract value and the estimated tender value.',
+    },
+    {
+      number: '03',
+      label: 'PARTICIPATION DATA',
+      title: 'Bidder participation',
+      value:
+        `${selectedTender.numberOfBidders || 0} bidders`,
+      detail:
+        'Number of bidders recorded for this procurement event.',
+    },
+    {
+      number: '04',
+      label: 'VENDOR CONTEXT',
+      title: 'Winning vendor',
+      value:
+        selectedTender.winningVendor || 'Not provided',
+      detail:
+        `Specialization: ${selectedTender.vendorSpecialization || 'Not provided'}.`,
+    },
+  ]
+
+  return (
+    <div className="evidence-page">
+      <Sidebar />
+
+      <main className="evidence-main">
+
+        <Topbar
+          activePage="evidence"
+          onAddTender={() => navigate('/add-tender')}
+        />
+
+        <div className="evidence-body">
+
+          {/* PAGE HEADER */}
+
+          <header className="evidence-page-header">
+
+            <div>
+              <span className="evidence-eyebrow">
+                VIGILANT / EVIDENCE
+              </span>
+
+              <h1>Evidence Repository</h1>
+
+              <p>
+                Trace investigation signals back to the underlying
+                procurement evidence.
+              </p>
+            </div>
+
+            <div className="evidence-live">
+              <span />
+              LIVE DATA
+            </div>
+
+          </header>
+
+          {/* TENDER SELECTOR */}
+
+          <section className="evidence-selector">
+
+            <div>
+              <span className="section-label">
+                SELECT RECORD
+              </span>
+
+              <h2>Investigation evidence</h2>
+
+              <p>
+                Select a procurement record to inspect its underlying
+                evidence and derived signals.
+              </p>
+            </div>
+
+            <select
+              value={selectedTender._id || selectedTender.tenderId}
+              onChange={(event) => setSelectedId(event.target.value)}
+            >
+              {tenders.map((tender) => (
+                <option
+                  key={tender._id || tender.tenderId}
+                  value={tender._id || tender.tenderId}
+                >
+                  {tender.tenderId} — {tender.winningVendor}
+                </option>
+              ))}
+            </select>
+
+          </section>
+
+          {/* CASE SUMMARY */}
+
+          <section className="evidence-case">
+
+            <div className="evidence-case-main">
+
+              <div className="case-kicker">
+                SELECTED TENDER
+              </div>
+
+              <div className="case-title-row">
+
+                <div>
+                  <h2>{selectedTender.tenderId}</h2>
+
+                  <p>
+                    {selectedTender.category}
+                    {' · '}
+                    {selectedTender.department}
+                    {' · '}
+                    {selectedTender.location}
+                  </p>
+                </div>
+
+                <div className="score-box">
+                  <span>INVESTIGATION PRIORITY</span>
+
+                  <strong>
+                    {score.toFixed(1)}
+                    <small>/100</small>
+                  </strong>
+
+                  <em className={priority.toLowerCase()}>
+                    {priority}
+                  </em>
+                </div>
+
+              </div>
+
+            </div>
+
+            <div className="case-action">
+              <button
+                onClick={() => navigate('/tenders')}
+              >
+                View tender →
+              </button>
+            </div>
+
+          </section>
+
+          {/* RAW RECORD */}
+
+          <section className="evidence-section">
+
+            <div className="section-header">
+
+              <div>
+                <span>01</span>
+
+                <div>
+                  <h2>Underlying procurement record</h2>
+
+                  <p>
+                    The source fields used by the analysis pipeline.
+                  </p>
+                </div>
+              </div>
+
+              <small>
+                RAW EVIDENCE
+              </small>
+
+            </div>
+
+            <div className="raw-grid">
+
+              <div>
+                <span>TENDER ID</span>
+                <strong>{selectedTender.tenderId}</strong>
+              </div>
+
+              <div>
+                <span>DEPARTMENT</span>
+                <strong>{selectedTender.department}</strong>
+              </div>
+
+              <div>
+                <span>CATEGORY</span>
+                <strong>{selectedTender.category}</strong>
+              </div>
+
+              <div>
+                <span>LOCATION</span>
+                <strong>{selectedTender.location}</strong>
+              </div>
+
+              <div>
+                <span>WINNING VENDOR</span>
+                <strong>{selectedTender.winningVendor}</strong>
+              </div>
+
+              <div>
+                <span>VENDOR SPECIALIZATION</span>
+                <strong>
+                  {selectedTender.vendorSpecialization}
+                </strong>
+              </div>
+
+              <div>
+                <span>ESTIMATED VALUE</span>
+                <strong>
+                  {formatCurrency(selectedTender.estimatedValue)}
+                </strong>
+              </div>
+
+              <div>
+                <span>CONTRACT VALUE</span>
+                <strong>
+                  {formatCurrency(selectedTender.contractValue)}
+                </strong>
+              </div>
+
+              <div>
+                <span>NUMBER OF BIDDERS</span>
+                <strong>
+                  {selectedTender.numberOfBidders}
+                </strong>
+              </div>
+
+            </div>
+
+          </section>
+
+          {/* EVIDENCE CHAIN */}
+
+          <section className="evidence-section">
+
+            <div className="section-header">
+
+              <div>
+                <span>02</span>
+
+                <div>
+                  <h2>Evidence chain</h2>
+
+                  <p>
+                    Raw evidence → derived signal → investigation context.
+                  </p>
+                </div>
+              </div>
+
+              <small>
+                TRACEABLE SIGNALS
+              </small>
+
+            </div>
+
+            <div className="evidence-chain">
+
+              {evidence.map((item) => (
+                <article
+                  className="evidence-card"
+                  key={item.number}
+                >
+
+                  <div className="evidence-card-top">
+                    <span>{item.number}</span>
+                    <span>{item.label}</span>
+                  </div>
+
+                  <h3>{item.title}</h3>
+
+                  <strong>
+                    {item.value}
+                  </strong>
+
+                  <p>
+                    {item.detail}
+                  </p>
+
+                </article>
+              ))}
+
+            </div>
+
+          </section>
+
+          {/* PRIORITY INTERPRETATION */}
+
+          <section className="interpretation">
+
+            <div className="interpretation-main">
+
+              <span>03 · INVESTIGATOR INTERPRETATION</span>
+
+              <h2>
+                Investigation Priority: {score.toFixed(1)}/100
+              </h2>
+
+              <p>
+                This score indicates how valuable the record may be
+                for further investigator review. It is not a finding
+                of wrongdoing or a probability of guilt.
+              </p>
+
+            </div>
+
+            <div className="interpretation-side">
+
+              <div>
+                <span>PRIORITY</span>
+                <strong className={priority.toLowerCase()}>
+                  {priority}
+                </strong>
+              </div>
+
+              <div>
+                <span>CONTRACT VALUE</span>
+                <strong>
+                  {formatCurrency(selectedTender.contractValue)}
+                </strong>
+              </div>
+
+            </div>
+
+          </section>
+
+          {/* OTHER RECORDS */}
+
+          {tenders.length > 1 && (
+            <section className="evidence-section">
+
+              <div className="section-header">
+
+                <div>
+                  <span>04</span>
+
+                  <div>
+                    <h2>Other analyzed records</h2>
+
+                    <p>
+                      Procurement records currently available from MongoDB.
+                    </p>
+                  </div>
+                </div>
+
+                <small>
+                  {tenders.length} RECORDS
+                </small>
+
+              </div>
+
+              <div className="record-list">
+
+                {tenders
+                  .filter(
+                    (tender) =>
+                      (tender._id || tender.tenderId) !==
+                      (selectedTender._id || selectedTender.tenderId)
+                  )
+                  .slice(0, 6)
+                  .map((tender) => {
+
+                    const tenderScore = Number(
+                      tender.investigation_priority || 0
+                    )
+
+                    const tenderPriority =
+                      tenderScore >= 75
+                        ? 'HIGH'
+                        : tenderScore >= 50
+                          ? 'MEDIUM'
+                          : 'LOW'
+
+                    return (
+                      <button
+                        className="record-row"
+                        key={tender._id || tender.tenderId}
+                        onClick={() =>
+                          setSelectedId(
+                            tender._id || tender.tenderId
+                          )
+                        }
+                      >
+
+                        <div>
+                          <strong>{tender.tenderId}</strong>
+                          <span>
+                            {tender.category}
+                          </span>
+                        </div>
+
+                        <div>
+                          <span>
+                            {tender.winningVendor}
+                          </span>
+                        </div>
+
+                        <div>
+                          <strong>
+                            {tenderScore.toFixed(1)}
+                          </strong>
+
+                          <small
+                            className={tenderPriority.toLowerCase()}
+                          >
+                            {tenderPriority}
+                          </small>
+                        </div>
+
+                      </button>
+                    )
+                  })}
+
+              </div>
+
+            </section>
+          )}
+
+          {/* DISCLAIMER */}
+
+          <div className="evidence-disclaimer">
+
+            <div className="disclaimer-icon">
+              i
+            </div>
+
+            <div>
+              <strong>
+                Evidence supports investigation — it does not establish wrongdoing.
+              </strong>
+
+              <p>
+                A procurement record can be unusual for legitimate reasons.
+                Investigators should evaluate multiple signals and the
+                surrounding context before drawing conclusions.
+              </p>
+            </div>
+
+          </div>
+
+        </div>
+
+      </main>
+    </div>
+  )
+}
+
+export default Evidence
