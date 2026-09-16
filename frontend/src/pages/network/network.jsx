@@ -6,7 +6,7 @@ import {
   Controls,
   MiniMap,
   Handle,
-  Position,
+  Position, 
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
 import './network.css'
