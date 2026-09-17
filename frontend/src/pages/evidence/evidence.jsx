@@ -1,872 +1,938 @@
-import { useEffect, useState } from 'react'
-import { useNavigate, useSearchParams } from 'react-router-dom'
-
-import Sidebar from '../../components/Sidebar'
-import Topbar from '../../components/Topbar'
-
-import './evidence.css'
-
-function Evidence() {
-  const navigate = useNavigate()
-  const [searchParams] = useSearchParams()
-
-  const requestedTenderId = searchParams.get('tender')
-
-  const [tenders, setTenders] = useState([])
-  const [selectedId, setSelectedId] = useState(
-    requestedTenderId || ''
-  )
-
-  const [selectedTender, setSelectedTender] = useState(null)
-  const [evidenceData, setEvidenceData] = useState(null)
-
-  const [loadingTenders, setLoadingTenders] = useState(true)
-  const [loadingEvidence, setLoadingEvidence] = useState(false)
-
-  useEffect(() => {
-    fetch(
-      'https://vigilant-6sc2.vercel.app/api/tenders?limit=20'
-    )
-      .then((response) => {
-        if (!response.ok) {
-          throw new Error(
-            'Unable to load procurement records'
-          )
-        }
-
-        return response.json()
-      })
-      .then((data) => {
-        const records = Array.isArray(data)
-          ? data
-          : []
-
-        setTenders(records)
-
-        if (requestedTenderId) {
-          const requested = records.find(
-            (item) =>
-              item.tenderId === requestedTenderId
-          )
-
-          if (requested) {
-            setSelectedId(requestedTenderId)
-          } else if (records.length > 0) {
-            setSelectedId(records[0].tenderId)
-          }
-        } else if (records.length > 0) {
-          setSelectedId(records[0].tenderId)
-        }
-      })
-      .catch((error) => {
-        console.error(
-          'Evidence records error:',
-          error
-        )
-
-        setTenders([])
-      })
-      .finally(() => {
-        setLoadingTenders(false)
-      })
-  }, [requestedTenderId])
-
-  useEffect(() => {
-    if (!selectedId) {
-      setSelectedTender(null)
-      setEvidenceData(null)
-      return
-    }
-
-    const tender =
-      tenders.find(
-        (item) =>
-          item.tenderId === selectedId
-      ) || null
-
-    setSelectedTender(tender)
-
-    const loadEvidence = async () => {
-      setLoadingEvidence(true)
-
-      try {
-        const response = await fetch(
-          `https://vigilant-6sc2.vercel.app/api/tenders/${encodeURIComponent(
-            selectedId
-          )}/evidence`
-        )
-
-        if (!response.ok) {
-          throw new Error(
-            'Unable to load evidence'
-          )
-        }
-
-        const data = await response.json()
-
-        setEvidenceData(data)
-      } catch (error) {
-        console.error(
-          'Evidence API error:',
-          error
-        )
-
-        setEvidenceData(null)
-      } finally {
-        setLoadingEvidence(false)
-      }
-    }
-
-    loadEvidence()
-  }, [selectedId, tenders])
-
-  const score = Number(
-    selectedTender?.investigation_priority || 0
-  )
-
-  const priority =
-    score >= 75
-      ? 'HIGH'
-      : score >= 50
-        ? 'MEDIUM'
-        : 'LOW'
-
-  const formatCurrency = (value) => {
-    const number = Number(value || 0)
-
-    if (number >= 10000000) {
-      return `?${(
-        number / 10000000
-      ).toFixed(2)} Cr`
-    }
-
-    if (number >= 100000) {
-      return `?${(
-        number / 100000
-      ).toFixed(2)} L`
-    }
-
-    return `?${number.toLocaleString('en-IN')}`
-  }
-
-  const getEvidenceItems = () => {
-    if (!evidenceData) return []
-
-    if (Array.isArray(evidenceData)) {
-      return evidenceData
-    }
-
-    if (Array.isArray(evidenceData.evidence)) {
-      return evidenceData.evidence
-    }
-
-    if (
-      Array.isArray(
-        evidenceData.evidenceChain
-      )
-    ) {
-      return evidenceData.evidenceChain
-    }
-
-    if (Array.isArray(evidenceData.items)) {
-      return evidenceData.items
-    }
-
-    return []
-  }
-
-  const evidenceItems = getEvidenceItems()
-
-  const fallbackEvidence =
-    selectedTender
-      ? [
-          {
-            label: 'RAW PROCUREMENT DATA',
-            title: 'Contract value',
-            value: formatCurrency(
-              selectedTender.contractValue
-            ),
-            detail: `Estimated value: ${formatCurrency(
-              selectedTender.estimatedValue
-            )}. Observed contract value: ${formatCurrency(
-              selectedTender.contractValue
-            )}.`,
-          },
-          {
-            label: 'PARTICIPATION DATA',
-            title: 'Bidder participation',
-            value: `${
-              selectedTender.numberOfBidders || 0
-            } bidders`,
-            detail:
-              'Number of bidders recorded for this procurement event.',
-          },
-          {
-            label: 'VENDOR CONTEXT',
-            title: 'Winning vendor',
-            value:
-              selectedTender.winningVendor ||
-              'Not provided',
-            detail: `Specialization: ${
-              selectedTender.vendorSpecialization ||
-              'Not provided'
-            }.`,
-          },
-        ]
-      : []
-
-  const displayEvidence =
-    evidenceItems.length > 0
-      ? evidenceItems.map(
-          (item, index) => ({
-            number: String(
-              index + 1
-            ).padStart(2, '0'),
-
-            label:
-              item.label ||
-              item.type ||
-              'EVIDENCE',
-
-            title:
-              item.title ||
-              item.name ||
-              'Procurement evidence',
-
-            value:
-              item.value ??
-              item.observation ??
-              item.raw_value ??
-              'Available',
-
-            detail:
-              item.detail ||
-              item.description ||
-              item.explanation ||
-              'Evidence associated with this investigation.',
-
-            score:
-              item.score ||
-              item.contribution ||
-              '',
-          })
-        )
-      : fallbackEvidence.map(
-          (item, index) => ({
-            ...item,
-            number: String(
-              index + 1
-            ).padStart(2, '0'),
-          })
-        )
-
-  if (loadingTenders) {
-    return (
-      <div className="evidence-page">
-
-        <Sidebar />
-
-        <main className="evidence-main">
-
-          <Topbar
-            activePage="evidence"
-            onAddTender={() =>
-              navigate('/add-tender')
-            }
-          />
-
-          <div className="evidence-loading">
-            Loading evidence repository...
-          </div>
-
-        </main>
-
-      </div>
-    )
-  }
-
-  if (!selectedTender) {
-    return (
-      <div className="evidence-page">
-
-        <Sidebar />
-
-        <main className="evidence-main">
-
-          <Topbar
-            activePage="evidence"
-            onAddTender={() =>
-              navigate('/add-tender')
-            }
-          />
-
-          <div className="evidence-empty">
-
-            <span className="evidence-eyebrow">
-              EVIDENCE VIEW
-            </span>
-
-            <h1>
-              No procurement evidence
-            </h1>
-
-            <p>
-              No analyzed procurement records are
-              currently available.
-            </p>
-
-            
-
-          </div>
-
-        </main>
-
-      </div>
-    )
-  }
-
-  return (
-    <div className="evidence-page">
-
-      <Sidebar />
-
-      <main className="evidence-main">
-
-        <Topbar
-          activePage="evidence"
-          onAddTender={() =>
-            navigate('/add-tender')
-          }
-        />
-
-        <div className="evidence-body">
-
-          <header className="evidence-page-header">
-
-            <div>
-
-              <span className="evidence-eyebrow">
-                VIGILANT / EVIDENCE
-              </span>
-
-              <h1>
-                Evidence Repository
-              </h1>
-
-              <p>
-                Trace investigation signals back to
-                the underlying procurement evidence.
-              </p>
-
-            </div>
-
-            <div className="evidence-live">
-              <span />
-              LIVE DATA
-            </div>
-
-          </header>
-
-          <section className="evidence-selector">
-
-            <div>
-
-              <span className="section-label">
-                SELECT RECORD
-              </span>
-
-              <h2>
-                Investigation evidence
-              </h2>
-
-              <p>
-                Select a procurement record to inspect
-                its underlying evidence and derived
-                signals.
-              </p>
-
-            </div>
-
-            <select
-              value={selectedTender.tenderId}
-              onChange={(event) =>
-                setSelectedId(
-                  event.target.value
-                )
-              }
-            >
-
-              {tenders.map((tender) => (
-                <option
-                  key={tender.tenderId}
-                  value={tender.tenderId}
-                >
-                  {tender.tenderId} &mdash;{' '}
-                  {tender.winningVendor}
-                </option>
-              ))}
-
-            </select>
-
-          </section>
-
-          <section className="evidence-case">
-
-            <div className="evidence-case-main">
-
-              <div className="case-kicker">
-                SELECTED TENDER
-              </div>
-
-              <div className="case-title-row">
-
-                <div>
-
-                  <h2>
-                    {selectedTender.tenderId}
-                  </h2>
-
-                  <p>
-                    {selectedTender.category}
-                    {' &middot; '}
-                    {selectedTender.department}
-                    {' &middot; '}
-                    {selectedTender.location}
-                  </p>
-
-                </div>
-
-                <div className="score-box">
-
-                  <span>
-                    INVESTIGATION PRIORITY
-                  </span>
-
-                  <strong>
-                    {score.toFixed(1)}
-                    <small>/100</small>
-                  </strong>
-
-                  <em
-                    className={priority.toLowerCase()}
-                  >
-                    {priority}
-                  </em>
-
-                </div>
-
-              </div>
-
-            </div>
-
-            <div className="case-action">
-
-              <button
-                onClick={() =>
-                  navigate(
-                    `/case/INV-${selectedTender.tenderId}`
-                  )
-                }
-              >
-                View investigation ?
-              </button>
-
-            </div>
-
-          </section>
-
-          <section className="evidence-section">
-
-            <div className="section-header">
-
-              <div>
-
-                <span>01</span>
-
-                <div>
-
-                  <h2>
-                    Underlying procurement record
-                  </h2>
-
-                  <p>
-                    The source fields used by the
-                    analysis pipeline.
-                  </p>
-
-                </div>
-
-              </div>
-
-              <small>
-                RAW EVIDENCE
-              </small>
-
-            </div>
-
-            <div className="raw-grid">
-
-              <div>
-                <span>TENDER ID</span>
-                <strong>
-                  {selectedTender.tenderId}
-                </strong>
-              </div>
-
-              <div>
-                <span>DEPARTMENT</span>
-                <strong>
-                  {selectedTender.department}
-                </strong>
-              </div>
-
-              <div>
-                <span>CATEGORY</span>
-                <strong>
-                  {selectedTender.category}
-                </strong>
-              </div>
-
-              <div>
-                <span>LOCATION</span>
-                <strong>
-                  {selectedTender.location}
-                </strong>
-              </div>
-
-              <div>
-                <span>WINNING VENDOR</span>
-                <strong>
-                  {selectedTender.winningVendor}
-                </strong>
-              </div>
-
-              <div>
-                <span>VENDOR SPECIALIZATION</span>
-                <strong>
-                  {selectedTender.vendorSpecialization}
-                </strong>
-              </div>
-
-              <div>
-                <span>ESTIMATED VALUE</span>
-                <strong>
-                  {formatCurrency(
-                    selectedTender.estimatedValue
-                  )}
-                </strong>
-              </div>
-
-              <div>
-                <span>CONTRACT VALUE</span>
-                <strong>
-                  {formatCurrency(
-                    selectedTender.contractValue
-                  )}
-                </strong>
-              </div>
-
-              <div>
-                <span>NUMBER OF BIDDERS</span>
-                <strong>
-                  {selectedTender.numberOfBidders}
-                </strong>
-              </div>
-
-            </div>
-
-          </section>
-
-          <section className="evidence-section">
-
-            <div className="section-header">
-
-              <div>
-
-                <span>02</span>
-
-                <div>
-
-                  <h2>
-                    Evidence chain
-                  </h2>
-
-                  <p>
-                    Raw evidence ? derived signal ?
-                    investigation context.
-                  </p>
-
-                </div>
-
-              </div>
-
-              <small>
-                TRACEABLE SIGNALS
-              </small>
-
-            </div>
-
-            {loadingEvidence ? (
-
-              <div className="evidence-loading">
-                Loading investigation evidence...
-              </div>
-
-            ) : (
-
-              <div className="evidence-chain">
-
-                {displayEvidence.map(
-                  (item) => (
-                    <article
-                      className="evidence-card"
-                      key={item.number}
-                    >
-
-                      <div className="evidence-card-top">
-
-                        <span>
-                          {item.number}
-                        </span>
-
-                        <span>
-                          {item.label}
-                        </span>
-
-                      </div>
-
-                      <h3>
-                        {item.title}
-                      </h3>
-
-                      <strong>
-                        {String(item.value)}
-                      </strong>
-
-                      <p>
-                        {item.detail}
-                      </p>
-
-                      {item.score && (
-                        <div
-                          style={{
-                            marginTop: '12px',
-                            fontWeight: 700,
-                          }}
-                        >
-                          Contribution:{' '}
-                          {String(
-                            item.score
-                          ).startsWith('+')
-                            ? item.score
-                            : `+${item.score}`}
-                        </div>
-                      )}
-
-                    </article>
-                  )
-                )}
-
-              </div>
-
-            )}
-
-          </section>
-
-          <section className="interpretation">
-
-            <div className="interpretation-main">
-
-              <span>
-                03 &middot; INVESTIGATOR INTERPRETATION
-              </span>
-
-              <h2>
-                Investigation Priority:{' '}
-                {score.toFixed(1)}/100
-              </h2>
-
-              <p>
-                This score indicates how valuable the
-                record may be for further investigator
-                review. It is not a finding of wrongdoing
-                or a probability of guilt.
-              </p>
-
-            </div>
-
-            <div className="interpretation-side">
-
-              <div>
-
-                <span>PRIORITY</span>
-
-                <strong
-                  className={priority.toLowerCase()}
-                >
-                  {priority}
-                </strong>
-
-              </div>
-
-              <div>
-
-                <span>CONTRACT VALUE</span>
-
-                <strong>
-                  {formatCurrency(
-                    selectedTender.contractValue
-                  )}
-                </strong>
-
-              </div>
-
-            </div>
-
-          </section>
-
-          <section className="evidence-section">
-
-            <div className="section-header">
-
-              <div>
-
-                <span>04</span>
-
-                <div>
-
-                  <h2>
-                    Other analyzed records
-                  </h2>
-
-                  <p>
-                    Select another procurement record
-                    from the current analysis queue.
-                  </p>
-
-                </div>
-
-              </div>
-
-              <small>
-                {tenders.length} RECORDS
-              </small>
-
-            </div>
-
-            <div className="record-list">
-
-              {tenders
-                .filter(
-                  (tender) =>
-                    tender.tenderId !==
-                    selectedTender.tenderId
-                )
-                .slice(0, 6)
-                .map((tender) => {
-
-                  const tenderScore =
-                    Number(
-                      tender.investigation_priority ||
-                        0
-                    )
-
-                  const tenderPriority =
-                    tenderScore >= 75
-                      ? 'HIGH'
-                      : tenderScore >= 50
-                        ? 'MEDIUM'
-                        : 'LOW'
-
-                  return (
-                    <button
-                      className="record-row"
-                      key={tender.tenderId}
-                      onClick={() =>
-                        setSelectedId(
-                          tender.tenderId
-                        )
-                      }
-                    >
-
-                      <div>
-
-                        <strong>
-                          {tender.tenderId}
-                        </strong>
-
-                        <span>
-                          {tender.category}
-                        </span>
-
-                      </div>
-
-                      <div>
-
-                        <span>
-                          {tender.winningVendor}
-                        </span>
-
-                      </div>
-
-                      <div>
-
-                        <strong>
-                          {tenderScore.toFixed(1)}
-                        </strong>
-
-                        <small
-                          className={tenderPriority.toLowerCase()}
-                        >
-                          {tenderPriority}
-                        </small>
-
-                      </div>
-
-                    </button>
-                  )
-                })}
-
-            </div>
-
-          </section>
-
-          <div className="evidence-disclaimer">
-
-            <div className="disclaimer-icon">
-              i
-            </div>
-
-            <div>
-
-              <strong>
-                Evidence supports investigation &mdash; it
-                does not establish wrongdoing.
-              </strong>
-
-              <p>
-                A procurement record can be unusual for
-                legitimate reasons. Investigators should
-                evaluate multiple signals and surrounding
-                context before drawing conclusions.
-              </p>
-
-            </div>
-
-          </div>
-
-        </div>
-
-      </main>
-
-    </div>
-  )
-}
-
-export default Evidence
-
-
-
+import { useEffect, useMemo, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 
+import Sidebar from '../../components/Sidebar'
+import Topbar from '../../components/Topbar'
 
+import './evidence.css'
 
+const API_URL = 'https://vigilant-6sc2.vercel.app'
+
+const SIGNAL_INFO = {
+  'Price deviation': {
+    field: 'current_price_vs_comparable_percent',
+    description:
+      'Contract price differs from comparable procurement prices.',
+  },
+
+  'High bid similarity': {
+    field: 'bid_similarity_percent',
+    description:
+      'Bid values show a high degree of similarity.',
+  },
+
+  'Repeated participation pattern': {
+    field: 'shared_tenders',
+    description:
+      'Vendors repeatedly appear together across procurement events.',
+  },
+
+  'High vendor win concentration': {
+    field: 'historical_win_rate',
+    description:
+      'Historical vendor win rate is elevated.',
+  },
+
+  'Strong network relationship': {
+    field: 'network_relationship_strength',
+    description:
+      'The record has strong historical network relationships.',
+  },
+
+  'Market price movement': {
+    field: 'market_price_increase',
+    description:
+      'Market movement may explain part of the observed price change.',
+  },
+}
+
+function formatEvidenceValue(signalName, value, unit) {
+  const number = Number(value)
+
+  if (!Number.isFinite(number)) {
+    return 'Not available'
+  }
+
+  if (unit === '%') {
+    return `${number.toFixed(2)}%`
+  }
+
+  if (unit === 'strength') {
+    return number.toFixed(3)
+  }
+
+  if (unit === 'shared tenders') {
+    return `${Math.round(number)} shared tenders`
+  }
+
+  return number.toFixed(2)
+}
+
+function getSignalPriority(signal, tenderPriority) {
+  const value = Number(signal?.value)
+
+  if (
+    signal?.name === 'High bid similarity' &&
+    value >= 90
+  ) {
+    return 'High'
+  }
+
+  if (
+    signal?.name === 'Price deviation' &&
+    Math.abs(value) >= 10
+  ) {
+    return 'High'
+  }
+
+  if (
+    signal?.name === 'Repeated participation pattern' &&
+    value >= 15
+  ) {
+    return 'High'
+  }
+
+  if (
+    signal?.name === 'High vendor win concentration' &&
+    value >= 75
+  ) {
+    return 'High'
+  }
+
+  if (
+    signal?.name === 'Strong network relationship' &&
+    value >= 0.75
+  ) {
+    return 'High'
+  }
+
+  if (tenderPriority === 'High') {
+    return 'Medium'
+  }
+
+  return 'Low'
+}
+
+function Evidence() {
+  const navigate = useNavigate()
+
+  const [tenders, setTenders] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+  const [search, setSearch] = useState('')
+  const [visibleCount, setVisibleCount] = useState(20)
+
+  useEffect(() => {
+    let cancelled = false
+
+    async function loadEvidence() {
+      try {
+        setLoading(true)
+        setError('')
+
+        const response = await fetch(
+          `${API_URL}/api/tenders?limit=100&skip=0`
+        )
+
+        if (!response.ok) {
+          throw new Error(
+            `Evidence request failed: ${response.status}`
+          )
+        }
+
+        const data = await response.json()
+
+        const items = Array.isArray(data)
+          ? data
+          : Array.isArray(data.items)
+            ? data.items
+            : []
+
+        if (!cancelled) {
+          setTenders(items)
+        }
+      } catch (err) {
+        console.error('Evidence API error:', err)
+
+        if (!cancelled) {
+          setError(
+            'Unable to load analyzed procurement evidence.'
+          )
+          setTenders([])
+        }
+      } finally {
+        if (!cancelled) {
+          setLoading(false)
+        }
+      }
+    }
+
+    loadEvidence()
+
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  useEffect(() => {
+    setVisibleCount(20)
+  }, [search])
+
+  const evidenceRecords = useMemo(() => {
+    const records = []
+
+    tenders.forEach((tender) => {
+      const signals = Array.isArray(tender.signals)
+        ? tender.signals
+        : []
+
+      signals.forEach((signal, index) => {
+        if (!signal || typeof signal !== 'object') {
+          return
+        }
+
+        const signalName =
+          signal.name || 'Procurement anomaly signal'
+
+        const info = SIGNAL_INFO[signalName]
+
+        records.push({
+          id: `${tender.tenderId}-${signalName}-${index}`,
+          tenderId: tender.tenderId,
+          department: tender.department,
+          category: tender.category,
+          location: tender.location,
+          tenderPriority: tender.priority || 'Low',
+          score: Number(
+            tender.investigation_priority || 0
+          ),
+          signalName,
+          value: signal.value,
+          unit: signal.unit,
+          description:
+            signal.description ||
+            info?.description ||
+            'Observed procurement signal.',
+          field:
+            info?.field ||
+            'procurement_signal',
+          signalPriority: getSignalPriority(
+            signal,
+            tender.priority
+          ),
+        })
+      })
+    })
+
+    return records
+  }, [tenders])
+
+  const filteredEvidence = useMemo(() => {
+    const query = search.trim().toLowerCase()
+
+    if (!query) {
+      return evidenceRecords
+    }
+
+    return evidenceRecords.filter((record) =>
+      [
+        record.tenderId,
+        record.department,
+        record.category,
+        record.location,
+        record.signalName,
+        record.description,
+      ]
+        .filter(Boolean)
+        .some((value) =>
+          String(value).toLowerCase().includes(query)
+        )
+    )
+  }, [evidenceRecords, search])
+
+  const visibleEvidence = filteredEvidence.slice(
+    0,
+    visibleCount
+  )
+
+  const highCount = evidenceRecords.filter(
+    (item) => item.signalPriority === 'High'
+  ).length
+
+  const mediumCount = evidenceRecords.filter(
+    (item) => item.signalPriority === 'Medium'
+  ).length
+
+  const signalCount = evidenceRecords.length
+
+  const handleOpenCase = (tenderId) => {
+    if (tenderId) {
+      navigate(`/case/${tenderId}`)
+    }
+  }
+
+  return (
+    <div
+      className="evidence-page"
+      style={{
+        '--navy': '#111827',
+        '--navy-light': '#1b2736',
+        '--navy-active': '#243447',
+        '--blue': '#1769aa',
+        '--blue-light': '#2b91c8',
+        '--page': '#f4f6f8',
+        '--white': '#ffffff',
+        '--text': '#18232d',
+        '--text-secondary': '#5f6d77',
+        '--text-muted': '#84919a',
+        '--border': '#dce2e6',
+      }}
+    >
+      <Sidebar />
+
+      <main className="evidence-main">
+        <Topbar activePage="evidence" />
+
+        <div
+          className="evidence-content"
+          style={{
+            padding: '34px 48px 50px',
+            background: '#f4f6f8',
+            minHeight: 'calc(100vh - 80px)',
+          }}
+        >
+          {/* PAGE HEADER */}
+          <section
+            style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'flex-start',
+              marginBottom: '28px',
+              gap: '30px',
+            }}
+          >
+            <div>
+              <div
+                style={{
+                  color: '#1769aa',
+                  fontSize: '10px',
+                  fontWeight: 700,
+                  letterSpacing: '2px',
+                  marginBottom: '9px',
+                }}
+              >
+                EVIDENCE REPOSITORY
+              </div>
+
+              <h1
+                style={{
+                  margin: 0,
+                  color: '#18232d',
+                  fontSize: '30px',
+                  fontWeight: 700,
+                  letterSpacing: '-0.7px',
+                }}
+              >
+                Procurement Evidence
+              </h1>
+
+              <p
+                style={{
+                  margin: '8px 0 0',
+                  color: '#5f6d77',
+                  fontSize: '13px',
+                }}
+              >
+                Trace observed procurement signals back to
+                the underlying analyzed records.
+              </p>
+            </div>
+
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                color: '#5f6d77',
+                fontSize: '9px',
+                fontWeight: 700,
+                letterSpacing: '1px',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              <span
+                style={{
+                  width: '7px',
+                  height: '7px',
+                  borderRadius: '50%',
+                  background: '#2b91c8',
+                  display: 'inline-block',
+                }}
+              />
+              LIVE MONITORING
+            </div>
+          </section>
+
+          {/* SUMMARY */}
+          <section
+            style={{
+              display: 'grid',
+              gridTemplateColumns:
+                'repeat(3, minmax(0, 1fr))',
+              gap: '14px',
+              marginBottom: '20px',
+            }}
+          >
+            <div
+              style={{
+                background: '#ffffff',
+                border: '1px solid #dce2e6',
+                borderRadius: '6px',
+                padding: '18px 20px',
+              }}
+            >
+              <div
+                style={{
+                  color: '#84919a',
+                  fontSize: '9px',
+                  fontWeight: 700,
+                  letterSpacing: '1.2px',
+                }}
+              >
+                ANALYZED RECORDS
+              </div>
+
+              <strong
+                style={{
+                  display: 'block',
+                  marginTop: '7px',
+                  color: '#18232d',
+                  fontSize: '24px',
+                }}
+              >
+                {loading ? '—' : tenders.length}
+              </strong>
+
+              <span
+                style={{
+                  color: '#84919a',
+                  fontSize: '10px',
+                }}
+              >
+                procurement records loaded
+              </span>
+            </div>
+
+            <div
+              style={{
+                background: '#ffffff',
+                border: '1px solid #dce2e6',
+                borderRadius: '6px',
+                padding: '18px 20px',
+              }}
+            >
+              <div
+                style={{
+                  color: '#84919a',
+                  fontSize: '9px',
+                  fontWeight: 700,
+                  letterSpacing: '1.2px',
+                }}
+              >
+                OBSERVED SIGNALS
+              </div>
+
+              <strong
+                style={{
+                  display: 'block',
+                  marginTop: '7px',
+                  color: '#18232d',
+                  fontSize: '24px',
+                }}
+              >
+                {loading ? '—' : signalCount}
+              </strong>
+
+              <span
+                style={{
+                  color: '#84919a',
+                  fontSize: '10px',
+                }}
+              >
+                traceable signals
+              </span>
+            </div>
+
+            <div
+              style={{
+                background: '#ffffff',
+                border: '1px solid #dce2e6',
+                borderRadius: '6px',
+                padding: '18px 20px',
+              }}
+            >
+              <div
+                style={{
+                  color: '#84919a',
+                  fontSize: '9px',
+                  fontWeight: 700,
+                  letterSpacing: '1.2px',
+                }}
+              >
+                HIGH-PRIORITY SIGNALS
+              </div>
+
+              <strong
+                style={{
+                  display: 'block',
+                  marginTop: '7px',
+                  color: '#b43d3d',
+                  fontSize: '24px',
+                }}
+              >
+                {loading ? '—' : highCount}
+              </strong>
+
+              <span
+                style={{
+                  color: '#84919a',
+                  fontSize: '10px',
+                }}
+              >
+                requiring closer review
+              </span>
+            </div>
+          </section>
+
+          {/* MAIN EVIDENCE PANEL */}
+          <section
+            style={{
+              background: '#ffffff',
+              border: '1px solid #dce2e6',
+              borderRadius: '6px',
+              overflow: 'hidden',
+            }}
+          >
+            {/* PANEL HEADER */}
+            <div
+              style={{
+                padding: '20px 22px',
+                borderBottom: '1px solid #e9edef',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                gap: '20px',
+              }}
+            >
+              <div>
+                <div
+                  style={{
+                    color: '#1769aa',
+                    fontSize: '9px',
+                    fontWeight: 700,
+                    letterSpacing: '1.4px',
+                  }}
+                >
+                  TRACEABLE PROCUREMENT SIGNALS
+                </div>
+
+                <h2
+                  style={{
+                    margin: '6px 0 0',
+                    color: '#18232d',
+                    fontSize: '18px',
+                  }}
+                >
+                  Evidence records
+                </h2>
+              </div>
+
+              <input
+                type="text"
+                value={search}
+                onChange={(event) =>
+                  setSearch(event.target.value)
+                }
+                placeholder="Search evidence..."
+                style={{
+                  width: '250px',
+                  height: '36px',
+                  border: '1px solid #dce2e6',
+                  borderRadius: '5px',
+                  padding: '0 12px',
+                  outline: 'none',
+                  color: '#18232d',
+                  background: '#fafbfc',
+                  fontSize: '11px',
+                }}
+              />
+            </div>
+
+            {/* ERROR */}
+            {error && (
+              <div
+                style={{
+                  margin: '18px 22px',
+                  padding: '14px 16px',
+                  border: '1px solid #f0d1d1',
+                  borderRadius: '5px',
+                  background: '#faecec',
+                  color: '#9c3838',
+                  fontSize: '11px',
+                }}
+              >
+                {error}
+              </div>
+            )}
+
+            {/* LOADING */}
+            {loading && (
+              <div
+                style={{
+                  padding: '60px 20px',
+                  textAlign: 'center',
+                  color: '#84919a',
+                  fontSize: '12px',
+                }}
+              >
+                Loading analyzed procurement evidence...
+              </div>
+            )}
+
+            {/* NO RESULTS */}
+            {!loading &&
+              !error &&
+              filteredEvidence.length === 0 && (
+                <div
+                  style={{
+                    padding: '60px 20px',
+                    textAlign: 'center',
+                  }}
+                >
+                  <div
+                    style={{
+                      color: '#1769aa',
+                      fontSize: '9px',
+                      fontWeight: 700,
+                      letterSpacing: '1.5px',
+                      marginBottom: '9px',
+                    }}
+                  >
+                    EVIDENCE VIEW
+                  </div>
+
+                  <h3
+                    style={{
+                      margin: 0,
+                      color: '#18232d',
+                      fontSize: '20px',
+                    }}
+                  >
+                    No evidence matches your search
+                  </h3>
+
+                  <p
+                    style={{
+                      margin: '8px 0 0',
+                      color: '#84919a',
+                      fontSize: '11px',
+                    }}
+                  >
+                    Try a different tender ID, department,
+                    location, or signal.
+                  </p>
+                </div>
+              )}
+
+            {/* EVIDENCE LIST */}
+            {!loading &&
+              filteredEvidence.length > 0 && (
+                <div>
+                  {visibleEvidence.map((record) => (
+                    <div
+                      key={record.id}
+                      style={{
+                        padding: '17px 22px',
+                        borderBottom:
+                          '1px solid #e9edef',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '18px',
+                      }}
+                    >
+                      {/* TYPE */}
+                      <div
+                        style={{
+                          width: '42px',
+                          height: '42px',
+                          flexShrink: 0,
+                          border:
+                            '1px solid #cbdde9',
+                          borderRadius: '5px',
+                          background: '#f1f7fb',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          color: '#1769aa',
+                          fontSize: '8px',
+                          fontWeight: 800,
+                          letterSpacing: '0.5px',
+                        }}
+                      >
+                        {record.signalName ===
+                        'High bid similarity'
+                          ? 'BID'
+                          : record.signalName ===
+                              'Price deviation'
+                            ? 'VAL'
+                            : record.signalName ===
+                                'Repeated participation pattern'
+                              ? 'PAT'
+                              : record.signalName ===
+                                  'Strong network relationship'
+                                ? 'NET'
+                                : record.signalName ===
+                                    'High vendor win concentration'
+                                  ? 'WIN'
+                                  : 'SIG'}
+                      </div>
+
+                      {/* MAIN INFO */}
+                      <div
+                        style={{
+                          flex: 1,
+                          minWidth: 0,
+                        }}
+                      >
+                        <div
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '10px',
+                            flexWrap: 'wrap',
+                          }}
+                        >
+                          <strong
+                            style={{
+                              color: '#18232d',
+                              fontSize: '12px',
+                            }}
+                          >
+                            {record.signalName}
+                          </strong>
+
+                          <span
+                            style={{
+                              color: '#1769aa',
+                              fontSize: '9px',
+                              fontWeight: 700,
+                            }}
+                          >
+                            {record.tenderId}
+                          </span>
+                        </div>
+
+                        <div
+                          style={{
+                            marginTop: '5px',
+                            color: '#84919a',
+                            fontSize: '10px',
+                          }}
+                        >
+                          {record.department || 'Department unavailable'}
+                          {' • '}
+                          {record.category || 'Category unavailable'}
+                          {' • '}
+                          {record.location || 'Location unavailable'}
+                        </div>
+
+                        <div
+                          style={{
+                            marginTop: '6px',
+                            color: '#5f6d77',
+                            fontSize: '10px',
+                          }}
+                        >
+                          {record.description}
+                        </div>
+                      </div>
+
+                      {/* VALUE */}
+                      <div
+                        style={{
+                          width: '120px',
+                          textAlign: 'right',
+                          flexShrink: 0,
+                        }}
+                      >
+                        <div
+                          style={{
+                            color: '#84919a',
+                            fontSize: '8px',
+                            fontWeight: 700,
+                            letterSpacing: '0.8px',
+                          }}
+                        >
+                          OBSERVED VALUE
+                        </div>
+
+                        <strong
+                          style={{
+                            display: 'block',
+                            marginTop: '5px',
+                            color: '#18232d',
+                            fontSize: '13px',
+                          }}
+                        >
+                          {formatEvidenceValue(
+                            record.signalName,
+                            record.value,
+                            record.unit
+                          )}
+                        </strong>
+
+                        <span
+                          style={{
+                            display: 'block',
+                            marginTop: '3px',
+                            color: '#aeb8be',
+                            fontSize: '8px',
+                          }}
+                        >
+                          {record.field}
+                        </span>
+                      </div>
+
+                      {/* PRIORITY */}
+                      <div
+                        style={{
+                          width: '68px',
+                          textAlign: 'center',
+                          flexShrink: 0,
+                        }}
+                      >
+                        <span
+                          style={{
+                            display: 'inline-block',
+                            padding: '5px 8px',
+                            borderRadius: '4px',
+                            fontSize: '8px',
+                            fontWeight: 800,
+                            letterSpacing: '0.4px',
+                            color:
+                              record.signalPriority ===
+                              'High'
+                                ? '#b43d3d'
+                                : record.signalPriority ===
+                                    'Medium'
+                                  ? '#a4761c'
+                                  : '#3f7d62',
+                            background:
+                              record.signalPriority ===
+                              'High'
+                                ? '#faecec'
+                                : record.signalPriority ===
+                                    'Medium'
+                                  ? '#fbf4e2'
+                                  : '#eaf4ef',
+                          }}
+                        >
+                          {record.signalPriority}
+                        </span>
+
+                        <div
+                          style={{
+                            marginTop: '5px',
+                            color: '#84919a',
+                            fontSize: '8px',
+                          }}
+                        >
+                          Score {record.score.toFixed(2)}
+                        </div>
+                      </div>
+
+                      {/* CASE BUTTON */}
+                      <button
+                        type="button"
+                        onClick={() =>
+                          handleOpenCase(record.tenderId)
+                        }
+                        style={{
+                          border: '1px solid #cbd6dd',
+                          background: '#ffffff',
+                          color: '#1769aa',
+                          borderRadius: '4px',
+                          padding: '8px 10px',
+                          fontSize: '9px',
+                          fontWeight: 700,
+                          cursor: 'pointer',
+                          flexShrink: 0,
+                        }}
+                      >
+                        VIEW CASE →
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+            {/* LOAD MORE */}
+            {!loading &&
+              visibleCount < filteredEvidence.length && (
+                <div
+                  style={{
+                    padding: '18px',
+                    textAlign: 'center',
+                    borderTop: '1px solid #e9edef',
+                  }}
+                >
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setVisibleCount(
+                        (current) => current + 20
+                      )
+                    }
+                    style={{
+                      border: '1px solid #cbd6dd',
+                      background: '#ffffff',
+                      color: '#1769aa',
+                      borderRadius: '4px',
+                      padding: '9px 18px',
+                      fontSize: '9px',
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                    }}
+                  >
+                    LOAD MORE EVIDENCE
+                  </button>
+                </div>
+              )}
+
+            {/* FOOTNOTE */}
+            {!loading &&
+              evidenceRecords.length > 0 && (
+                <div
+                  style={{
+                    padding: '13px 22px',
+                    background: '#fafbfc',
+                    borderTop: '1px solid #e9edef',
+                    color: '#84919a',
+                    fontSize: '9px',
+                    lineHeight: 1.5,
+                  }}
+                >
+                  Evidence shown here is derived from the
+                  analyzed procurement records and model
+                  signals. An observed signal is not, by
+                  itself, a finding of misconduct.
+                </div>
+              )}
+          </section>
+        </div>
+      </main>
+    </div>
+  )
+}
+
+export default Evidence

@@ -15,8 +15,8 @@ function Vendors() {
   // Use local FastAPI while developing.
   // Use deployed FastAPI for Vercel / other devices.
   const API_URL = import.meta.env.DEV
-    ? 'https://vigilant-6sc2.vercel.app'
-    : 'https://vigilant-6sc2.vercel.app'
+  ? 'http://127.0.0.1:8000'
+  : 'https://vigilant-6sc2.vercel.app'
 
   // Reset to first page when search changes
   useEffect(() => {

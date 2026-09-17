@@ -35,7 +35,7 @@ function Home() {
             onClick={() => navigate("/dashboard")}
           >
             Dashboard
-            <span>â†—</span>
+            <span>&larr;</span>
           </button>
 
           <button

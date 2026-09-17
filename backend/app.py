@@ -40,9 +40,13 @@ MODEL_PATH = os.path.join(BASE_DIR, "vigilant_model.json")
 FEATURE_COLUMNS_PATH = os.path.join(BASE_DIR, "feature_columns.json")
 
 DATASET_CANDIDATES = [
-    os.path.join(BASE_DIR, "vigilant_dataset.csv"),
+    # Model input: processed 48-feature dataset.
     os.path.join(BASE_DIR, "vigilant_training_dataset.csv"),
 ]
+
+# Raw procurement metadata. This file contains the original tender IDs and
+# winning vendor names, but it is NOT used as model input.
+METADATA_PATH = os.path.join(BASE_DIR, "vigilant_dataset.csv")
 
 
 # ============================================================
@@ -102,7 +106,29 @@ for candidate in DATASET_CANDIDATES:
             print("ERROR reading dataset:", error)
 
 if dataset.empty:
-    print("ERROR: No dataset CSV found.")
+    print("ERROR: No model dataset CSV found.")
+
+
+# ============================================================
+# LOAD RAW PROCUREMENT METADATA
+# ============================================================
+
+metadata_dataset = pd.DataFrame()
+
+if os.path.exists(METADATA_PATH):
+    try:
+        metadata_dataset = pd.read_csv(METADATA_PATH)
+        metadata_dataset.columns = (
+            metadata_dataset.columns
+            .astype(str)
+            .str.strip()
+        )
+        print("Raw procurement metadata loaded successfully")
+        print("Metadata shape:", metadata_dataset.shape)
+    except Exception as error:
+        print("ERROR reading raw procurement metadata:", error)
+else:
+    print("WARNING: Raw procurement metadata file not found.")
 
 
 # ============================================================
@@ -210,10 +236,47 @@ def decode_one_hot(row: pd.Series, prefix: str, default: str = "Unknown") -> str
 
 
 def tender_id_for_index(index_value: int) -> str:
-    # The current processed CSV no longer contains the original tender_id.
-    # Create a stable display ID from the dataset row instead of inventing
-    # a database ID.
+    # Stable internal display ID used by the current frontend routes.
     return f"DATA-{index_value + 1:05d}"
+
+
+def metadata_row_for_index(index_value: int) -> pd.Series | None:
+    if metadata_dataset.empty:
+        return None
+    if index_value < 0 or index_value >= len(metadata_dataset):
+        return None
+    return metadata_dataset.iloc[index_value]
+
+
+def metadata_value(index_value: int, column: str, default: Any = "") -> Any:
+    row = metadata_row_for_index(index_value)
+    if row is None or column not in row.index:
+        return default
+    return row_value(row, column, default)
+
+
+def tender_payload(row: pd.Series, tender_id: str) -> dict:
+    row_number = safe_int(row_value(row, "_row_number", 0))
+    raw_tender_id = str(metadata_value(row_number, "tender_id", tender_id))
+    vendor = "Source vendor not linked to processed model row"
+
+    return {
+        "_id": tender_id,
+        "tenderId": tender_id,
+        "sourceTenderId": raw_tender_id,
+        "department": decode_one_hot(row, "department_"),
+        "category": decode_one_hot(row, "category_"),
+        "location": decode_one_hot(row, "location_"),
+        "estimatedValue": safe_float(row_value(row, "estimated_value", metadata_value(row_number, "estimated_value", 0))),
+        "contractValue": safe_float(row_value(row, "final_contract_value", metadata_value(row_number, "final_contract_value", 0))),
+        "numberOfBidders": safe_int(row_value(row, "number_of_bidders", metadata_value(row_number, "number_of_bidders", 0))),
+        "winningVendor": vendor,
+        "vendorSpecialization": decode_one_hot(row, "vendor_specialization_"),
+        "investigation_priority": safe_float(row_value(row, "investigation_priority", 0)),
+        "priority": row_value(row, "priority", "Low"),
+        "rawModelScore": safe_float(row_value(row, "raw_model_score", 0)),
+        "signals": row_value(row, "signals", []),
+    }
 
 
 def build_signals(row: pd.Series) -> list[dict]:
@@ -383,9 +446,134 @@ def health():
         "model_path": MODEL_PATH,
         "model_error": model_error,
         "dataset_loaded": not dataset.empty,
+        "metadata_loaded": not metadata_dataset.empty,
+        "metadata_records": int(len(metadata_dataset)),
         "tenders_analyzed": int(len(analysis_data)),
         "model_features": len(feature_columns),
     }
+
+# ============================================================
+# VENDOR LOOKUP
+# ============================================================
+
+RAW_DATASET_PATH = os.path.join(
+    BASE_DIR,
+    "vigilant_dataset.csv"
+)
+
+try:
+    raw_vendor_data = pd.read_csv(RAW_DATASET_PATH)
+    print(
+        "Raw vendor dataset loaded:",
+        len(raw_vendor_data),
+        "records"
+    )
+except Exception as exc:
+    raw_vendor_data = pd.DataFrame()
+    print("Raw vendor dataset unavailable:", exc)
+
+
+def find_winning_vendor(row):
+    """
+    Find the real winning vendor from the original dataset.
+
+    We match procurement attributes rather than assuming that
+    processed row numbers correspond to raw CSV row numbers.
+    """
+
+    if raw_vendor_data.empty:
+        return "Vendor information unavailable"
+
+    if "winning_vendor" not in raw_vendor_data.columns:
+        return "Vendor information unavailable"
+
+    department = decode_one_hot(row, "department_")
+    category = decode_one_hot(row, "category_")
+    location = decode_one_hot(row, "location_")
+
+    contract_value = safe_float(
+        row_value(row, "final_contract_value", 0)
+    )
+
+    estimated_value = safe_float(
+        row_value(row, "estimated_value", 0)
+    )
+
+    bidders = safe_int(
+        row_value(row, "number_of_bidders", 0)
+    )
+
+    candidates = raw_vendor_data.copy()
+
+    # Match categorical procurement attributes first.
+    for column, value in [
+        ("department", department),
+        ("category", category),
+        ("location", location),
+    ]:
+        if column in candidates.columns and value:
+            candidates = candidates[
+                candidates[column]
+                .astype(str)
+                .str.strip()
+                .str.lower()
+                == str(value).strip().lower()
+            ]
+
+    if candidates.empty:
+        return "Vendor information unavailable"
+
+    # Match numeric procurement attributes.
+    if "contract_value" in candidates.columns:
+        contract_values = pd.to_numeric(
+            candidates["contract_value"],
+            errors="coerce"
+        )
+
+        candidates = candidates[
+            (contract_values - contract_value).abs()
+            <= max(abs(contract_value) * 0.0001, 1)
+        ]
+
+    if candidates.empty:
+        return "Vendor information unavailable"
+
+    if "number_of_bidders" in candidates.columns:
+        bidder_values = pd.to_numeric(
+            candidates["number_of_bidders"],
+            errors="coerce"
+        )
+
+        bidder_matches = candidates[
+            bidder_values == bidders
+        ]
+
+        if not bidder_matches.empty:
+            candidates = bidder_matches
+
+    if candidates.empty:
+        return "Vendor information unavailable"
+
+    vendors = (
+        candidates["winning_vendor"]
+        .dropna()
+        .astype(str)
+        .str.strip()
+    )
+
+    vendors = [
+        vendor
+        for vendor in vendors
+        if vendor and vendor.lower() != "nan"
+    ]
+
+    # Only return a vendor when the match is unambiguous.
+    unique_vendors = list(dict.fromkeys(vendors))
+
+    if len(unique_vendors) == 1:
+        return unique_vendors[0]
+
+    return "Vendor information unavailable"
 
 # ============================================================
 # DASHBOARD
@@ -411,10 +599,9 @@ def dashboard_data():
 
     total_tenders = len(analysis_data)
 
-    if "winning_vendor" in analysis_data.columns:
-        total_vendors = int(analysis_data["winning_vendor"].dropna().nunique())
+    if not metadata_dataset.empty and "winning_vendor" in metadata_dataset.columns:
+        total_vendors = int(metadata_dataset["winning_vendor"].dropna().astype(str).str.strip().nunique())
     else:
-        # The processed CSV no longer carries the original vendor name.
         total_vendors = 0
 
     high = int((analysis_data["investigation_priority"] >= 75).sum())
@@ -436,6 +623,8 @@ def dashboard_data():
         row_number = safe_int(row_value(row, "_row_number", 0))
         tender_id = tender_id_for_index(row_number)
         signals = row_value(row, "signals", [])
+        if not isinstance(signals, list):
+            signals = build_signals(row)
         first_signal = (
             signals[0].get("name", "Procurement anomaly signal")
             if signals and isinstance(signals[0], dict)
@@ -454,7 +643,7 @@ def dashboard_data():
             "category": decode_one_hot(row, "category_"),
             "location": decode_one_hot(row, "location_"),
             "vendorSpecialization": decode_one_hot(row, "vendor_specialization_"),
-            "winningVendor": "Not available in processed dataset",
+            "winningVendor": find_winning_vendor(row),
             "contractValue": safe_float(row_value(row, "final_contract_value", 0)),
             "estimatedValue": safe_float(row_value(row, "estimated_value", 0)),
             "signals": signals,
@@ -477,7 +666,7 @@ def dashboard_data():
             "estimatedValue": safe_float(row_value(row, "estimated_value", 0)),
             "contractValue": safe_float(row_value(row, "final_contract_value", 0)),
             "numberOfBidders": safe_int(row_value(row, "number_of_bidders", 0)),
-            "winningVendor": "Not available in processed dataset",
+            "winningVendor": "Vendor record not linked to processed model row",
             "vendorSpecialization": decode_one_hot(row, "vendor_specialization_"),
             "investigation_priority": safe_float(row_value(row, "investigation_priority", 0)),
             "priority": row_value(row, "priority", "Low"),
@@ -572,7 +761,7 @@ def get_tenders(limit: int = 20, skip: int = 0):
             "estimatedValue": safe_float(row_value(row, "estimated_value", 0)),
             "contractValue": safe_float(row_value(row, "final_contract_value", 0)),
             "numberOfBidders": safe_int(row_value(row, "number_of_bidders", 0)),
-            "winningVendor": "Not available in processed dataset",
+            "winningVendor": find_winning_vendor(row),
             "vendorSpecialization": decode_one_hot(row, "vendor_specialization_"),
             "investigation_priority": safe_float(row_value(row, "investigation_priority", 0)),
             "priority": row_value(row, "priority", "Low"),
@@ -608,22 +797,7 @@ def get_tender(tender_id: str):
 
     row = matches.iloc[0]
 
-    return {
-        "_id": tender_id,
-        "tenderId": tender_id,
-        "department": decode_one_hot(row, "department_"),
-        "category": decode_one_hot(row, "category_"),
-        "location": decode_one_hot(row, "location_"),
-        "estimatedValue": safe_float(row_value(row, "estimated_value", 0)),
-        "contractValue": safe_float(row_value(row, "final_contract_value", 0)),
-        "numberOfBidders": safe_int(row_value(row, "number_of_bidders", 0)),
-        "winningVendor": "Not available in processed dataset",
-        "vendorSpecialization": decode_one_hot(row, "vendor_specialization_"),
-        "investigation_priority": safe_float(row_value(row, "investigation_priority", 0)),
-        "priority": row_value(row, "priority", "Low"),
-        "rawModelScore": safe_float(row_value(row, "raw_model_score", 0)),
-        "signals": row_value(row, "signals", []),
-    }
+    return tender_payload(row, tender_id)
 
 
 # ============================================================
@@ -815,18 +989,224 @@ def tender_evidence(tender_id: str):
 # VENDORS
 # ============================================================
 
+# ============================================================
+# VENDORS
+# ============================================================
+
 @app.get("/api/vendors")
 def get_vendors(
     limit: int = 10,
     skip: int = 0,
     search: str = "",
 ):
-    # The processed CSV does not retain the original winning_vendor column.
-    # Return an explicit empty vendor list rather than inventing vendor names.
+    limit = min(max(limit, 1), 50)
+    skip = max(skip, 0)
+
+    # The processed ML dataset does not contain winning_vendor.
+    # Use the original procurement dataset for the vendor directory.
+    raw_vendor_path = os.path.join(BASE_DIR, "vigilant_dataset.csv")
+
+    if not os.path.exists(raw_vendor_path):
+        return {
+            "items": [],
+            "total": 0,
+            "page": (skip // limit) + 1,
+            "limit": limit,
+            "note": "Original vendor dataset not found.",
+        }
+
+    try:
+        vendor_data = pd.read_csv(raw_vendor_path)
+    except Exception as exc:
+        return {
+            "items": [],
+            "total": 0,
+            "page": (skip // limit) + 1,
+            "limit": limit,
+            "note": f"Could not load vendor dataset: {exc}",
+        }
+
+    if "winning_vendor" not in vendor_data.columns:
+        return {
+            "items": [],
+            "total": 0,
+            "page": (skip // limit) + 1,
+            "limit": limit,
+            "note": "winning_vendor column not found in original dataset.",
+        }
+
+    vendor_data["winning_vendor"] = (
+        vendor_data["winning_vendor"]
+        .astype(str)
+        .str.strip()
+    )
+
+    vendor_data = vendor_data[
+        (vendor_data["winning_vendor"] != "") &
+        (vendor_data["winning_vendor"].str.lower() != "nan")
+    ]
+
+    # Search vendor name or department.
+    if search.strip():
+        term = search.strip().lower()
+
+        vendor_mask = (
+            vendor_data["winning_vendor"]
+            .str.lower()
+            .str.contains(term, na=False)
+        )
+
+        if "department" in vendor_data.columns:
+            department_mask = (
+                vendor_data["department"]
+                .astype(str)
+                .str.lower()
+                .str.contains(term, na=False)
+            )
+
+            vendor_data = vendor_data[vendor_mask | department_mask]
+        else:
+            vendor_data = vendor_data[vendor_mask]
+
+    # Aggregate procurement activity by vendor.
+    vendor_rows = []
+
+    for vendor_name, group in vendor_data.groupby(
+        "winning_vendor",
+        dropna=True,
+    ):
+        vendor_name = str(vendor_name).strip()
+
+        if not vendor_name:
+            continue
+
+        if "final_contract_value" in group.columns:
+            contract_values = pd.to_numeric(
+                group["final_contract_value"],
+                errors="coerce",
+            ).fillna(0)
+
+            total_value = float(contract_values.sum())
+        else:
+            total_value = 0.0
+
+        if "department" in group.columns:
+            departments = sorted(
+                {
+                    str(value).strip()
+                    for value in group["department"].dropna()
+                    if str(value).strip()
+                }
+            )
+        else:
+            departments = []
+
+        vendor_rows.append({
+            "name": vendor_name,
+            "tenders": int(len(group)),
+            "awards": int(len(group)),
+            "value": total_value,
+            "highPriority": 0,
+            "departments": departments,
+        })
+
+    # Sort by number of tenders, then vendor name.
+    vendor_rows.sort(
+        key=lambda item: (
+            -item["tenders"],
+            item["name"].lower(),
+        )
+    )
+
+    total = len(vendor_rows)
+
+    selected = vendor_rows[
+        skip:skip + limit
+    ]
+
     return {
-        "items": [],
-        "total": 0,
-        "page": (max(skip, 0) // min(max(limit, 1), 50)) + 1,
-        "limit": min(max(limit, 1), 50),
-        "note": "Vendor names are not present in the processed dataset.",
+        "items": selected,
+        "total": total,
+        "page": (skip // limit) + 1,
+        "limit": limit,
     }
+
+# ============================================================
+# EVIDENCE REPOSITORY
+# ============================================================
+
+@app.get("/api/evidence")
+def get_evidence(limit: int = 20, skip: int = 0, search: str = ""):
+    limit = min(max(limit, 1), 50)
+    skip = max(skip, 0)
+
+    if analysis_data.empty:
+        return {"items": [], "total": 0, "page": 1, "limit": limit}
+
+    rows = []
+    term = search.strip().lower()
+
+    for _, row in analysis_data.iterrows():
+        row_number = safe_int(row_value(row, "_row_number", 0))
+        tender_id = tender_id_for_index(row_number)
+        source_tender_id = str(metadata_value(row_number, "tender_id", tender_id))
+        vendor = "Source vendor not linked to processed model row"
+        score = safe_float(row_value(row, "investigation_priority", 0))
+        priority = str(row_value(row, "priority", get_priority(score)))
+        signals = row_value(row, "signals", [])
+        if not isinstance(signals, list):
+            signals = build_signals(row)
+
+        for signal in signals:
+            if not isinstance(signal, dict):
+                continue
+
+            name = str(signal.get("name", "Procurement signal"))
+            field_map = {
+                "Price deviation": "current_price_vs_comparable_percent",
+                "High bid similarity": "bid_similarity_percent",
+                "Repeated participation pattern": "shared_tenders",
+                "High vendor win concentration": "historical_win_rate",
+                "Strong network relationship": "network_relationship_strength",
+                "Market price movement": "market_price_increase",
+            }
+            field = field_map.get(name, "")
+            value = safe_float(row_value(row, field, 0)) if field else safe_float(signal.get("value", 0))
+            unit = str(signal.get("unit", ""))
+
+            haystack = " ".join([
+                tender_id,
+                source_tender_id,
+                vendor,
+                name,
+                str(row_number),
+            ]).lower()
+
+            if term and term not in haystack:
+                continue
+
+            rows.append({
+                "id": f"EVD-{row_number + 1:05d}-{len(rows) + 1:02d}",
+                "tenderId": tender_id,
+                "sourceTenderId": source_tender_id,
+                "vendor": vendor,
+                "signal": name,
+                "field": field,
+                "value": value,
+                "unit": unit,
+                "priority": priority,
+                "score": score,
+                "interpretation": str(signal.get("description", "Derived from available procurement features.")),
+            })
+
+    # Highest-priority evidence first.
+    rows.sort(key=lambda item: item["score"], reverse=True)
+    total = len(rows)
+
+    return {
+        "items": rows[skip:skip + limit],
+        "total": total,
+        "page": (skip // limit) + 1,
+        "limit": limit,
+    }
+
