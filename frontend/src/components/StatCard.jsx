@@ -19,3 +19,4 @@ function StatCard({ label, value, description, index }) {
 
 export default StatCard
 
+

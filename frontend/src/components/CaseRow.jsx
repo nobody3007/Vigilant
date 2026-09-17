@@ -32,3 +32,4 @@ function CaseRow({ caseData, onClick }) {
 
 export default CaseRow
 
+
