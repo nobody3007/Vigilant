@@ -3,456 +3,56 @@ import Sidebar from '../../components/Sidebar'
 import Topbar from '../../components/Topbar'
 import './vendors.css'
 
+const API_URL = import.meta.env.DEV
+  ? 'http://127.0.0.1:8000'
+  : 'https://vigilant-6sc2.vercel.app'
+
 function Vendors() {
   const [vendors, setVendors] = useState([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [page, setPage] = useState(1)
   const [total, setTotal] = useState(0)
+  const LIMIT = 20
 
-  const LIMIT = 10
+  useEffect(() => setPage(1), [search])
 
-  // Use local FastAPI while developing.
-  // Use deployed FastAPI for Vercel / other devices.
-  const API_URL = import.meta.env.DEV
-    ? 'https://vigilant-6sc2.vercel.app'
-    : 'https://vigilant-6sc2.vercel.app'
-
-  // Reset to first page when search changes
-  useEffect(() => {
-    setPage(1)
-  }, [search])
-
-  // Fetch vendors
   useEffect(() => {
     let cancelled = false
-
     const timer = setTimeout(async () => {
       try {
         setLoading(true)
-
-        const params = new URLSearchParams({
-          limit: String(LIMIT),
-          skip: String((page - 1) * LIMIT),
-        })
-
-        if (search.trim()) {
-          params.set('search', search.trim())
-        }
-
-        const response = await fetch(
-          `${API_URL}/api/vendors?${params.toString()}`
-        )
-
-        if (!response.ok) {
-          throw new Error(
-            `Failed to fetch vendors: ${response.status}`
-          )
-        }
-
+        const params = new URLSearchParams({ limit: String(LIMIT), skip: String((page - 1) * LIMIT) })
+        if (search.trim()) params.set('search', search.trim())
+        const response = await fetch(`${API_URL}/api/vendors?${params.toString()}`)
+        if (!response.ok) throw new Error(`Vendor request failed: ${response.status}`)
         const data = await response.json()
-
-        console.log('Vendors API response:', data)
-
-        if (!cancelled) {
-          const items = Array.isArray(data)
-            ? data
-            : Array.isArray(data.items)
-              ? data.items
-              : []
-
-          setVendors(items)
-
-          const totalCount = Array.isArray(data)
-            ? data.length
-            : Number(data.total ?? items.length)
-
-          setTotal(totalCount)
-        }
-      } catch (error) {
-        console.error('Vendors API error:', error)
-
-        if (!cancelled) {
-          setVendors([])
-          setTotal(0)
-        }
-      } finally {
-        if (!cancelled) {
-          setLoading(false)
-        }
-      }
-    }, 200)
-
-    return () => {
-      cancelled = true
-      clearTimeout(timer)
-    }
+        if (!cancelled) { setVendors(Array.isArray(data.items) ? data.items : []); setTotal(Number(data.total || 0)) }
+      } catch (err) {
+        console.error(err)
+        if (!cancelled) { setVendors([]); setTotal(0) }
+      } finally { if (!cancelled) setLoading(false) }
+    }, 150)
+    return () => { cancelled = true; clearTimeout(timer) }
   }, [page, search])
 
-  const totalPages = Math.max(
-    1,
-    Math.ceil(total / LIMIT)
-  )
-
-  const formatValue = (value) => {
-    const number = Number(value || 0)
-
-    if (number >= 10000000) {
-      return `?${(
-        number / 10000000
-      ).toFixed(2)} Cr`
-    }
-
-    if (number >= 100000) {
-      return `?${(
-        number / 100000
-      ).toFixed(2)} L`
-    }
-
-    return `?${number.toLocaleString('en-IN')}`
-  }
-
-  return (
-    <div className="vendors-page">
-
-      <Sidebar />
-
-      <main className="vendors-main">
-
-        <Topbar activePage="vendors" />
-
-        <div className="vendors-content">
-
-          {/* PAGE HEADING */}
-          <section className="vendors-heading">
-
-            <div>
-
-              <span className="vendors-eyebrow">
-                VENDOR INTELLIGENCE
-              </span>
-
-              <h1>
-                Vendors
-              </h1>
-
-              <p>
-                Review procurement participants and
-                their observed activity across analyzed
-                tenders.
-              </p>
-
-            </div>
-
-          </section>
-
-
-          {/* VENDOR PANEL */}
-          <section className="vendors-panel">
-
-            {/* HEADER */}
-            <div className="vendors-panel-header">
-
-              <div>
-
-                <span>
-                  VENDOR DIRECTORY
-                </span>
-
-                <h2>
-                  Mapped vendors
-                </h2>
-
-              </div>
-
-              <div className="vendors-count">
-                {total} vendors
-              </div>
-
-            </div>
-
-
-            {/* SEARCH */}
-            <div className="vendors-toolbar">
-
-              <input
-                type="text"
-                placeholder="Search vendor or department..."
-                value={search}
-                onChange={(e) =>
-                  setSearch(e.target.value)
-                }
-              />
-
-            </div>
-
-
-            {/* LOADING */}
-            {loading ? (
-
-              <div className="vendors-state">
-                Loading vendor records...
-              </div>
-
-            ) : vendors.length === 0 ? (
-
-              /* EMPTY */
-              <div className="vendors-state">
-                No vendors found.
-              </div>
-
-            ) : (
-
-              /* TABLE */
-              <div className="vendors-table">
-
-                {/* TABLE HEADER */}
-                <div className="vendors-table-head">
-
-                  <span>
-                    VENDOR
-                  </span>
-
-                  <span>
-                    TENDERS
-                  </span>
-
-                  <span>
-                    AWARDS
-                  </span>
-
-                  <span>
-                    CONTRACT VALUE
-                  </span>
-
-                  <span>
-                    HIGH PRIORITY
-                  </span>
-
-                  <span>
-                    DEPARTMENTS
-                  </span>
-
-                </div>
-
-
-                {/* TABLE ROWS */}
-                {vendors.map((vendor, index) => (
-
-                  <div
-                    className="vendors-table-row"
-                    key={
-                      vendor.name ||
-                      vendor.vendor ||
-                      index
-                    }
-                  >
-
-                    {/* VENDOR */}
-                    <div>
-
-                      <strong>
-                        {vendor.name ||
-                          vendor.vendor ||
-                          'Unknown vendor'}
-                      </strong>
-
-                      <small>
-                        Procurement participant
-                      </small>
-
-                    </div>
-
-
-                    {/* TENDERS */}
-                    <strong>
-                      {vendor.tenders ?? 0}
-                    </strong>
-
-
-                    {/* AWARDS */}
-                    <strong>
-                      {vendor.awards ?? 0}
-                    </strong>
-
-
-                    {/* VALUE */}
-                    <strong>
-                      {formatValue(
-                        vendor.value ??
-                        vendor.contractValue ??
-                        0
-                      )}
-                    </strong>
-
-
-                    {/* HIGH PRIORITY */}
-                    <span
-                      className={
-                        Number(
-                          vendor.highPriority || 0
-                        ) > 0
-                          ? 'vendor-alert'
-                          : 'vendor-normal'
-                      }
-                    >
-                      {vendor.highPriority ?? 0}
-                    </span>
-
-
-                    {/* DEPARTMENTS */}
-                    <div className="vendor-departments">
-
-                      {Array.isArray(
-                        vendor.departments
-                      ) &&
-                      vendor.departments.length > 0
-                        ? vendor.departments.join(', ')
-                        : '—'}
-
-                    </div>
-
-                  </div>
-
-                ))}
-
-              </div>
-
-            )}
-
-
-            {/* PAGINATION */}
-            <div className="vendor-pagination">
-
-              <button
-                disabled={page === 1}
-                onClick={() =>
-                  setPage((current) =>
-                    Math.max(
-                      1,
-                      current - 1
-                    )
-                  )
-                }
-              >
-                &larr; Previous
-              </button>
-
-
-              <div className="vendor-page-numbers">
-
-                {Array.from(
-                  {
-                    length: Math.min(
-                      totalPages,
-                      7
-                    ),
-                  },
-                  (_, index) => {
-
-                    let pageNumber
-
-                    if (totalPages <= 7) {
-
-                      pageNumber =
-                        index + 1
-
-                    } else if (page <= 4) {
-
-                      pageNumber =
-                        index + 1
-
-                    } else if (
-                      page >=
-                      totalPages - 3
-                    ) {
-
-                      pageNumber =
-                        totalPages -
-                        6 +
-                        index
-
-                    } else {
-
-                      pageNumber =
-                        page -
-                        3 +
-                        index
-
-                    }
-
-                    return (
-                      <button
-                        key={pageNumber}
-                        className={
-                          pageNumber === page
-                            ? 'active'
-                            : ''
-                        }
-                        onClick={() =>
-                          setPage(pageNumber)
-                        }
-                      >
-                        {pageNumber}
-                      </button>
-                    )
-                  }
-                )}
-
-              </div>
-
-
-              <button
-                disabled={
-                  page >= totalPages
-                }
-                onClick={() =>
-                  setPage((current) =>
-                    Math.min(
-                      totalPages,
-                      current + 1
-                    )
-                  )
-                }
-              >
-                Next &rarr;
-              </button>
-
-            </div>
-
-          </section>
-
-
-          {/* DISCLAIMER */}
-          <div className="vendors-disclaimer">
-
-            <div className="vendors-disclaimer-icon">
-              i
-            </div>
-
-            <div>
-
-              <strong>
-                Vendor activity is contextual evidence.
-              </strong>
-
-              <span>
-                Participation, awards, or concentration
-                alone do not establish wrongdoing and
-                should be reviewed alongside other evidence.
-              </span>
-
-            </div>
-
-          </div>
-
-        </div>
-
-      </main>
-
-    </div>
-  )
+  const totalPages = Math.max(1, Math.ceil(total / LIMIT))
+  const formatValue = (value) => { const n = Number(value || 0); return n >= 10000000 ? `Rs. ${(n / 10000000).toFixed(2)} Cr` : n >= 100000 ? `Rs. ${(n / 100000).toFixed(2)} L` : `Rs. ${n.toLocaleString('en-IN')}` }
+
+  const pages = totalPages <= 7 ? Array.from({length: totalPages}, (_, i) => i + 1) : page <= 4 ? [1,2,3,4,5,'...',totalPages] : page >= totalPages - 3 ? [1,'...',totalPages-4,totalPages-3,totalPages-2,totalPages-1,totalPages] : [1,'...',page-1,page,page+1,'...',totalPages]
+
+  return <div className="vendors-page"><Sidebar /><main className="vendors-main"><Topbar activePage="vendors" /><div className="vendors-content">
+    <section className="vendors-heading"><span>VENDOR INTELLIGENCE</span><h1>Vendors</h1><p>Review real procurement participants and their observed activity across the source dataset.</p></section>
+    <section className="vendors-panel">
+      <div className="vendors-panel-header"><div><span>VENDOR DIRECTORY</span><h2>Mapped vendors</h2></div><strong>{total.toLocaleString('en-IN')} vendors</strong></div>
+      <div className="vendors-toolbar"><input placeholder="Search vendor or department..." value={search} onChange={e => setSearch(e.target.value)} /></div>
+      {loading ? <div className="vendors-state">Loading vendor records...</div> : vendors.length === 0 ? <div className="vendors-state">No vendor records found.</div> : <div className="vendors-table">
+        <div className="vendors-table-head"><span>VENDOR</span><span>TENDERS</span><span>AWARDS</span><span>CONTRACT VALUE</span><span>HIGH PRIORITY</span><span>DEPARTMENTS</span></div>
+        {vendors.map(v => <div className="vendors-table-row" key={v.name}><div><strong>{v.name}</strong><small>Procurement participant</small></div><b>{v.tenders}</b><b>{v.awards}</b><b>{formatValue(v.value)}</b><span className={v.highPriority > 0 ? 'vendor-alert' : 'vendor-normal'}>{v.highPriority}</span><div className="vendor-departments">{v.departments?.length ? v.departments.join(', ') : 'No department recorded'}</div></div>)}
+      </div>}
+      {!loading && total > 0 && <div className="vendor-pagination"><button disabled={page === 1} onClick={() => setPage(p => Math.max(1,p-1))}>Previous</button><div>{pages.map((p,i) => p === '...' ? <span key={`e-${i}`}>...</span> : <button key={p} className={p === page ? 'active' : ''} onClick={() => setPage(p)}>{p}</button>)}</div><button disabled={page >= totalPages} onClick={() => setPage(p => Math.min(totalPages,p+1))}>Next</button></div>}
+    </section>
+    <div className="vendors-note"><b>Vendor activity is contextual evidence.</b><span>Participation, awards, and concentration should be reviewed alongside pricing, relationships, and underlying records.</span></div>
+  </div></main></div>
 }
-
 export default Vendors
-

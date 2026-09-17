@@ -1,683 +1,148 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-
 import Sidebar from '../../components/Sidebar'
 import Topbar from '../../components/Topbar'
-import CaseRow from '../../components/CaseRow'
-
 import './dashboard.css'
+
+const API_URL = import.meta.env.DEV
+  ? 'http://127.0.0.1:8000'
+  : 'https://vigilant-6sc2.vercel.app'
 
 function Dashboard() {
   const navigate = useNavigate()
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
 
   useEffect(() => {
-    const API_URL = import.meta.env.DEV
-      ? 'https://vigilant-6sc2.vercel.app'
-      : ''
+    let cancelled = false
 
-    fetch(`${API_URL}/api/dashboard`)
-      .then((res) => {
-        if (!res.ok) {
-          throw new Error('Dashboard API failed')
-        }
-
-        return res.json()
-      })
-      .then((result) => {
-        setData(result)
-      })
-      .catch((err) => {
+    async function loadDashboard() {
+      try {
+        setLoading(true)
+        const response = await fetch(`${API_URL}/api/dashboard`)
+        if (!response.ok) throw new Error(`Dashboard request failed: ${response.status}`)
+        const result = await response.json()
+        if (!cancelled) setData(result)
+      } catch (err) {
         console.error(err)
-      })
-      .finally(() => {
-        setLoading(false)
-      })
+        if (!cancelled) setError('Dashboard data could not be loaded.')
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
+    }
+
+    loadDashboard()
+    return () => { cancelled = true }
   }, [])
 
-  if (loading || !data) {
-    return (
-      <div className="dashboard-layout">
-        <Sidebar />
-
-        <main className="dashboard-main">
-          <Topbar activePage="dashboard" />
-
-          <div className="dashboard-content">
-            Loading dashboard...
-          </div>
-        </main>
-      </div>
-    )
+  const summary = data?.summary || {
+    totalTenders: 0,
+    totalVendors: 0,
+    highPriority: 0,
+    mediumPriority: 0,
+    lowPriority: 0,
+    analyzedTenders: 0,
+    activeSignals: 0,
   }
 
-  const summary = data.summary || {}
-  const cases = data.priorityCases || []
-  const recent = data.recentTenders || []
-  const signals = data.signalDistribution || []
+  const cases = Array.isArray(data?.priorityCases) ? data.priorityCases : []
+  const recent = Array.isArray(data?.recentTenders) ? data.recentTenders : []
+  const signals = Array.isArray(data?.signalDistribution) ? data.signalDistribution : []
+  const totalPriority = summary.highPriority + summary.mediumPriority + summary.lowPriority || 1
 
-  const priority = (score) => {
-    const s = Number(score || 0)
-
-    if (s >= 75) return 'High'
-    if (s >= 50) return 'Medium'
-
-    return 'Low'
+  const formatValue = (value) => {
+    const number = Number(value || 0)
+    if (number >= 10000000) return `Rs. ${(number / 10000000).toFixed(2)} Cr`
+    if (number >= 100000) return `Rs. ${(number / 100000).toFixed(2)} L`
+    return `Rs. ${number.toLocaleString('en-IN')}`
   }
 
-  const money = (value) => {
-    const n = Number(value || 0)
-    return `?${(n / 10000000).toFixed(2)} Cr`
-  }
+  const score = (item) => Number(item?.investigation_priority ?? item?.score ?? 0)
 
   return (
-    <div className="dashboard-layout">
+    <div className="dashboard-page">
       <Sidebar />
-
       <main className="dashboard-main">
         <Topbar activePage="dashboard" />
 
         <div className="dashboard-content">
-
-          {/* =========================
-              STATS
-          ========================== */}
-
-          <section className="stats-grid">
-
-            <div className="dashboard-stat stat-blue">
-              <div className="stat-top">
-                <span>ACTIVE SIGNALS</span>
-                <small>01</small>
-              </div>
-
-              <strong>
-                {Number(
-                  summary.activeSignals || 0
-                ).toLocaleString('en-IN')}
-              </strong>
-
-              <p>
-                Detected signals across procurement records
-              </p>
-            </div>
-
-
-            <div className="dashboard-stat stat-red">
-              <div className="stat-top">
-                <span>HIGH PRIORITY</span>
-                <small>02</small>
-              </div>
-
-              <strong>
-                {Number(
-                  summary.highPriority || 0
-                ).toLocaleString('en-IN')}
-              </strong>
-
-              <p>
-                Cases prioritized for closer examination
-              </p>
-            </div>
-
-
-            <div className="dashboard-stat">
-              <div className="stat-top">
-                <span>TENDERS ANALYZED</span>
-                <small>03</small>
-              </div>
-
-              <strong>
-                {Number(
-                  summary.analyzedTenders || 0
-                ).toLocaleString('en-IN')}
-              </strong>
-
-              <p>
-                Procurement records analyzed
-              </p>
-            </div>
-
-
-            <div className="dashboard-stat">
-              <div className="stat-top">
-                <span>VENDORS MAPPED</span>
-                <small>04</small>
-              </div>
-
-              <strong>
-                {Number(
-                  summary.totalVendors || 0
-                ).toLocaleString('en-IN')}
-              </strong>
-
-              <p>
-                Winning vendors represented in the database
-              </p>
-            </div>
-
-          </section>
-
-
-          {/* =========================
-              PRIORITY + RISK
-          ========================== */}
-
-          <section className="analytics-grid">
-
-            <div className="dashboard-panel priority-panel">
-
-              <div className="panel-header">
-
-                <div>
-                  <span className="panel-eyebrow">
-                    INVESTIGATOR QUEUE
-                  </span>
-
-                  <h2>
-                    Priority investigations
-                  </h2>
-
-                  <p>
-                    Cases requiring closer review based on
-                    observed procurement signals.
-                  </p>
-                </div>
-
-
-                <button
-                  className="text-button"
-                  onClick={() =>
-                    navigate('/investigations')
-                  }
-                >
-                  View all investigations ?
-                </button>
-
-              </div>
-
-
-              <div className="case-table">
-
-                <div className="case-table-header">
-                  <span>CASE</span>
-                  <span>SIGNAL</span>
-                  <span>SCORE</span>
-                  <span>VALUE</span>
-                  <span>PRIORITY</span>
-                  <span></span>
-                </div>
-
-
-                {cases.slice(0, 5).map((tender) => {
-
-                  const score = Number(
-                    tender.investigation_priority || 0
-                  )
-
-
-                  return (
-                    <CaseRow
-                      key={
-                        tender._id ||
-                        tender.tenderId
-                      }
-
-                      caseData={{
-                        id: `INV-${tender.tenderId}`,
-
-                        tenderId:
-                          tender.tenderId,
-
-                        signal:
-                          tender.signals?.[0]?.name ||
-                          'Procurement anomaly signal',
-
-                        score,
-
-                        value:
-                          money(
-                            tender.contractValue
-                          ),
-
-                        priority:
-                          priority(score),
-
-                        vendor:
-                          tender.winningVendor,
-
-                        department:
-                          tender.department,
-                      }}
-
-                      onClick={() => {
-
-                        const tenderId =
-                          tender.tenderId ||
-                          tender.tender_id ||
-                          tender.id
-
-
-                        if (!tenderId) {
-                          console.error(
-                            'Missing tender ID:',
-                            tender
-                          )
-
-                          return
-                        }
-
-
-                        navigate(
-                          `/case/INV-${tenderId}`
-                        )
-                      }}
-                    />
-                  )
-                })}
-
-              </div>
-
-            </div>
-
-
-            {/* =========================
-                RISK DISTRIBUTION
-            ========================== */}
-
-            <div className="dashboard-panel risk-panel">
-
-              <div className="panel-header">
-
-                <div>
-                  <span className="panel-eyebrow">
-                    RISK DISTRIBUTION
-                  </span>
-
-                  <h2>
-                    Priority breakdown
-                  </h2>
-                </div>
-
-              </div>
-
-
-              <div className="risk-summary">
-
-                <div className="risk-total">
-
-                  <strong>
-                    {Number(
-                      summary.analyzedTenders || 0
-                    ).toLocaleString('en-IN')}
-                  </strong>
-
-                  <span>
-                    tenders analyzed
-                  </span>
-
-                </div>
-
-
-                <div className="risk-bars">
-
-                  {[
-                    [
-                      'High',
-                      summary.highPriority,
-                      'risk-high'
-                    ],
-
-                    [
-                      'Medium',
-                      summary.mediumPriority,
-                      'risk-medium'
-                    ],
-
-                    [
-                      'Low',
-                      summary.lowPriority,
-                      'risk-low'
-                    ],
-
-                  ].map(
-                    ([name, count, cls]) => {
-
-                      const total =
-                        Number(
-                          summary.highPriority ||
-                          0
-                        ) +
-
-                        Number(
-                          summary.mediumPriority ||
-                          0
-                        ) +
-
-                        Number(
-                          summary.lowPriority ||
-                          0
-                        )
-
-
-                      const width =
-                        total
-                          ? (
-                              Number(
-                                count || 0
-                              ) /
-                              total
-                            ) * 100
-                          : 0
-
-
-                      return (
-                        <div
-                          className="risk-row"
-                          key={name}
-                        >
-
-                          <div>
-                            <span>
-                              {name}
-                            </span>
-
-                            <strong>
-                              {Number(
-                                count || 0
-                              ).toLocaleString(
-                                'en-IN'
-                              )}
-                            </strong>
-                          </div>
-
-
-                          <div className="risk-track">
-
-                            <div
-                              className={
-                                `risk-fill ${cls}`
-                              }
-
-                              style={{
-                                width:
-                                  `${width}%`,
-                              }}
-                            />
-
-                          </div>
-
-                        </div>
-                      )
-                    }
-                  )}
-
-                </div>
-
-              </div>
-
-
-              <div className="risk-note">
-                Priority reflects the combination
-                of observed signals, not a
-                determination of wrongdoing.
-              </div>
-
-            </div>
-
-          </section>
-
-
-          {/* =========================
-              RECENT TENDERS + SIGNALS
-          ========================== */}
-
-          <section className="lower-grid">
-
-            {/* =========================
-                RECENT TENDERS
-            ========================== */}
-
-            <div className="dashboard-panel">
-
-              <div className="panel-header">
-
-                <div>
-                  <span className="panel-eyebrow">
-                    RECENT ACTIVITY
-                  </span>
-
-                  <h2>
-                    Recent tenders
-                  </h2>
-                </div>
-
-
-                <button
-                  className="text-button"
-                  onClick={() =>
-                    navigate('/tenders')
-                  }
-                >
-                  View all ?
-                </button>
-
-              </div>
-
-
-              <div className="tender-list">
-
-                {recent.slice(0, 5).map(
-                  (tender) => (
-
-                    <button
-                      className="tender-item"
-
-                      key={
-                        tender._id ||
-                        tender.tenderId
-                      }
-
-                      onClick={() => {
-
-                        const tenderId =
-                          tender.tenderId ||
-                          tender.tender_id ||
-                          tender.id
-
-
-                        if (!tenderId) {
-                          console.error(
-                            'Missing tender ID:',
-                            tender
-                          )
-
-                          return
-                        }
-
-
-                        navigate(
-                          `/case/INV-${tenderId}`
-                        )
-                      }}
-                    >
-
-                      <div className="tender-id">
-                        {tender.tenderId}
-                      </div>
-
-
-                      <div className="tender-info">
-
-                        <strong>
-                          {
-                            tender.category ||
-                            'Procurement Tender'
-                          }
-                        </strong>
-
-                        <span>
-                          {tender.department}
-                          {' · '}
-                          {tender.location}
-                        </span>
-
-                      </div>
-
-
-                      <div className="tender-value">
-                        {money(
-                          tender.contractValue
-                        )}
-                      </div>
-
-
-                      <span
-                        className={
-                          `tender-status ${
-                            priority(
-                              tender.investigation_priority
-                            ).toLowerCase()
-                          }`
-                        }
-                      >
-                        {priority(
-                          tender.investigation_priority
-                        )}
-                      </span>
-
-                    </button>
-
-                  )
-                )}
-
-              </div>
-
-            </div>
-
-
-            {/* =========================
-                SIGNAL ANALYSIS
-            ========================== */}
-
-            <div className="dashboard-panel signal-panel">
-
-              <div className="panel-header">
-
-                <div>
-                  <span className="panel-eyebrow">
-                    SIGNAL ANALYSIS
-                  </span>
-
-                  <h2>
-                    What is being detected?
-                  </h2>
-                </div>
-
-
-                <button
-                  className="text-button"
-                  onClick={() =>
-                    navigate('/evidence')
-                  }
-                >
-                  Evidence ?
-                </button>
-
-              </div>
-
-
-              <div className="signal-list">
-
-                {signals.map(
-                  (signal) => (
-
-                    <div
-                      className="signal-item"
-                      key={signal.name}
-                    >
-
-                      <div className="signal-info">
-
-                        <div>
-
-                          <strong>
-                            {signal.name}
-                          </strong>
-
-                          <span>
-                            {Number(
-                              signal.count || 0
-                            ).toLocaleString(
-                              'en-IN'
-                            )}
-                            {' '}
-                            active cases
-                          </span>
-
-                        </div>
-
-
-                        <b>
-                          {signal.percentage}%
-                        </b>
-
-                      </div>
-
-
-                      <div className="signal-track">
-
-                        <div
-                          className="signal-fill"
-
-                          style={{
-                            width:
-                              `${signal.percentage}%`,
-                          }}
-                        />
-
-                      </div>
-
-                    </div>
-
-                  )
-                )}
-
-              </div>
-
-            </div>
-
-          </section>
-
-
-          {/* =========================
-              DISCLAIMER
-          ========================== */}
-
-          <div className="dashboard-disclaimer">
-
-            <div className="disclaimer-icon">
-              i
-            </div>
-
-
+          <section className="dashboard-heading">
             <div>
-
-              <strong>
-                Investigation support, not automated accusations.
-              </strong>
-
-              <span>
-                Signals identify activity that deserves
-                closer review. They do not establish
-                wrongdoing or corruption.
-              </span>
-
+              <span className="dashboard-eyebrow">PROCUREMENT OVERSIGHT</span>
+              <h1>Investigation Overview</h1>
+              <p>Monitor procurement activity and prioritize records requiring closer review.</p>
             </div>
+            <div className="live-status"><span /> LIVE MONITORING</div>
+          </section>
 
-          </div>
+          {loading ? (
+            <div className="dashboard-state">Loading procurement analysis...</div>
+          ) : error ? (
+            <div className="dashboard-state error">{error}</div>
+          ) : (
+            <>
+              <section className="stats-grid">
+                <div className="stat-card blue"><span>ACTIVE SIGNALS</span><strong>{summary.activeSignals.toLocaleString('en-IN')}</strong><small>Derived signals across analyzed records</small></div>
+                <div className="stat-card red"><span>HIGH PRIORITY</span><strong>{summary.highPriority.toLocaleString('en-IN')}</strong><small>Records prioritized for closer examination</small></div>
+                <div className="stat-card"><span>TENDERS ANALYZED</span><strong>{summary.analyzedTenders.toLocaleString('en-IN')}</strong><small>Procurement records evaluated by the model</small></div>
+                <div className="stat-card"><span>VENDORS MAPPED</span><strong>{summary.totalVendors.toLocaleString('en-IN')}</strong><small>Winning vendors represented in source data</small></div>
+              </section>
 
+              <section className="dashboard-grid">
+                <div className="panel priority-panel">
+                  <div className="panel-header">
+                    <div><span>INVESTIGATOR QUEUE</span><h2>Priority investigations</h2><p>Highest-priority records based on the current model ranking.</p></div>
+                    <button onClick={() => navigate('/investigations')}>View all investigations</button>
+                  </div>
+                  <div className="case-table">
+                    <div className="case-head"><span>CASE</span><span>SIGNAL</span><span>SCORE</span><span>VALUE</span><span>PRIORITY</span></div>
+                    {cases.slice(0, 7).map((item) => {
+                      const s = score(item)
+                      return <button className="case-row" key={item.tenderId} onClick={() => navigate(`/case/${item.tenderId}`)}>
+                        <strong>INV-{item.tenderId}</strong>
+                        <div><b>{item.signal}</b><small>{item.department}</small></div>
+                        <strong>{s.toFixed(2)}<em>/100</em></strong>
+                        <span>{formatValue(item.contractValue)}</span>
+                        <span className={`badge ${String(item.priority || 'Low').toLowerCase()}`}>{item.priority}</span>
+                      </button>
+                    })}
+                  </div>
+                </div>
+
+                <div className="panel risk-panel">
+                  <div className="panel-header"><div><span>PRIORITY DISTRIBUTION</span><h2>Priority breakdown</h2></div></div>
+                  <div className="risk-total"><strong>{summary.analyzedTenders.toLocaleString('en-IN')}</strong><span>tenders analyzed</span></div>
+                  <div className="risk-list">
+                    {[
+                      ['High', summary.highPriority, 'high'],
+                      ['Medium', summary.mediumPriority, 'medium'],
+                      ['Low', summary.lowPriority, 'low'],
+                    ].map(([label, value, cls]) => <div className="risk-item" key={label}><div><span>{label}</span><b>{value.toLocaleString('en-IN')}</b></div><div className="risk-track"><i className={cls} style={{width: `${(value / totalPriority) * 100}%`}} /></div></div>)}
+                  </div>
+                  <p className="panel-note">Priority is an investigation-support score, not a probability or finding of wrongdoing.</p>
+                </div>
+              </section>
+
+              <section className="lower-grid">
+                <div className="panel">
+                  <div className="panel-header"><div><span>SIGNAL ANALYSIS</span><h2>Observed signals</h2></div></div>
+                  <div className="signal-list">
+                    {signals.map((item) => <div className="signal-item" key={item.name}><div><b>{item.name}</b><small>{item.count} records</small></div><div className="signal-track"><i style={{width: `${item.percentage}%`}} /></div><strong>{item.percentage}%</strong></div>)}
+                  </div>
+                </div>
+
+                <div className="panel">
+                  <div className="panel-header"><div><span>PROCUREMENT RECORDS</span><h2>Recent tenders</h2></div><button onClick={() => navigate('/tenders')}>View all tenders</button></div>
+                  <div className="recent-list">
+                    {recent.map((item) => <button className="recent-row" key={item.tenderId} onClick={() => navigate(`/case/${item.tenderId}`)}><div><b>{item.tenderId}</b><small>{item.category} · {item.location}</small></div><span>{formatValue(item.contractValue)}</span><strong className={`badge ${String(item.priority || 'Low').toLowerCase()}`}>{item.priority}</strong></button>)}
+                  </div>
+                </div>
+              </section>
+
+              <div className="dashboard-disclaimer"><b>Investigation support, not automated accusations.</b><span>Signals and priority scores identify records for closer human review. They do not establish misconduct.</span></div>
+            </>
+          )}
         </div>
       </main>
     </div>
@@ -685,4 +150,3 @@ function Dashboard() {
 }
 
 export default Dashboard
-
