@@ -91,7 +91,7 @@ function Home() {
                 onClick={() => navigate("/dashboard")}
               >
                 <span>Open Dashboard</span>
-                <span>â†’</span>
+              
               </button>
 
             </div>
