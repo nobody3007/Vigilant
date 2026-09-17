@@ -165,6 +165,36 @@ def get_priority(score: float) -> str:
     return "Low"
 
 
+def build_priority_scores(raw_predictions: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    """Create a relative 0-100 prototype priority score.
+
+    XGBoost is a regression model, so its raw output can slightly exceed the
+    training target range. The raw prediction is retained for transparency.
+
+    The displayed score is a percentile-style score within the current
+    dataset. It preserves the model's ranking while avoiding the misleading
+    interpretation of the number as a probability or confidence percentage.
+
+    The plotting-position formula keeps the endpoints just inside 0 and 100,
+    so the UI can show decimal scores rather than a wall of 100s.
+    """
+    raw = np.asarray(raw_predictions, dtype=float)
+
+    if raw.size == 0:
+        return raw, raw
+
+    order = np.argsort(raw, kind="mergesort")
+    ranks = np.empty(raw.size, dtype=float)
+    ranks[order] = np.arange(1, raw.size + 1, dtype=float)
+
+    # Mid-rank percentile: for N records the largest value is
+    # 100 * (N - 0.5) / N, not 100 exactly.
+    priority_scores = 100.0 * (ranks - 0.5) / raw.size
+    priority_scores = np.clip(priority_scores, 0.01, 99.99)
+
+    return raw, np.round(priority_scores, 2)
+
+
 def decode_one_hot(row: pd.Series, prefix: str, default: str = "Unknown") -> str:
     candidates = []
     for column in row.index:
@@ -310,9 +340,13 @@ def analyze_dataset() -> pd.DataFrame:
 
     results = dataset.copy()
     results["_row_number"] = np.arange(len(results))
-    results["investigation_priority"] = np.clip(
-        np.asarray(predictions, dtype=float), 0, 100
-    ).round(2)
+
+    # Keep the actual XGBoost regression output internally. Do not present it
+    # as a probability or confidence percentage.
+    raw_predictions, priority_scores = build_priority_scores(predictions)
+
+    results["raw_model_score"] = np.round(raw_predictions, 4)
+    results["investigation_priority"] = priority_scores
     results["priority"] = results["investigation_priority"].apply(get_priority)
     results["signals"] = results.apply(build_signals, axis=1)
 
@@ -414,6 +448,7 @@ def dashboard_data():
             "signal": first_signal,
             "score": safe_float(row_value(row, "investigation_priority", 0)),
             "investigation_priority": safe_float(row_value(row, "investigation_priority", 0)),
+            "rawModelScore": safe_float(row_value(row, "raw_model_score", 0)),
             "priority": row_value(row, "priority", "Low"),
             "department": decode_one_hot(row, "department_"),
             "category": decode_one_hot(row, "category_"),
@@ -510,12 +545,17 @@ def get_tenders(limit: int = 20, skip: int = 0):
     skip = max(skip, 0)
 
     if analysis_data.empty:
-        return []
+        return {
+            "items": [],
+            "total": 0
+        }
 
     sorted_data = analysis_data.sort_values(
-        "investigation_priority", ascending=False
+        "investigation_priority",
+        ascending=False
     )
 
+    total = len(sorted_data)
     selected = sorted_data.iloc[skip: skip + limit]
     items = []
 
@@ -536,10 +576,14 @@ def get_tenders(limit: int = 20, skip: int = 0):
             "vendorSpecialization": decode_one_hot(row, "vendor_specialization_"),
             "investigation_priority": safe_float(row_value(row, "investigation_priority", 0)),
             "priority": row_value(row, "priority", "Low"),
+            "rawModelScore": safe_float(row_value(row, "raw_model_score", 0)),
             "signals": row_value(row, "signals", []),
         })
 
-    return items
+    return {
+        "items": items,
+        "total": total
+    }
 
 
 @app.get("/api/tenders/{tender_id}")
@@ -577,6 +621,7 @@ def get_tender(tender_id: str):
         "vendorSpecialization": decode_one_hot(row, "vendor_specialization_"),
         "investigation_priority": safe_float(row_value(row, "investigation_priority", 0)),
         "priority": row_value(row, "priority", "Low"),
+        "rawModelScore": safe_float(row_value(row, "raw_model_score", 0)),
         "signals": row_value(row, "signals", []),
     }
 
@@ -680,7 +725,8 @@ def get_investigations(
             "location": decode_one_hot(row, "location_"),
             "value": safe_float(row_value(row, "final_contract_value", 0)),
             "priority": row_value(row, "priority", get_priority(score)),
-            "score": round(score, 1),
+            "score": round(score, 2),
+            "rawModelScore": safe_float(row_value(row, "raw_model_score", 0)),
             "vendor": "Not available in processed dataset",
         })
 
