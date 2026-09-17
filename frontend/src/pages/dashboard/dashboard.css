@@ -1,5 +1,5 @@
 /* =========================================================
-   VIGILANT — PROCUREMENT INVESTIGATION CONSOLE
+   VIGILANT â€” PROCUREMENT INVESTIGATION CONSOLE
    FINAL VISUAL SYSTEM
    ========================================================= */
 
@@ -72,7 +72,7 @@ select {
 
 /* =========================================================
    SIDEBAR
-   NO GREEN — EVER
+   NO GREEN â€” EVER
    ========================================================= */
 
 .sidebar {
@@ -306,7 +306,7 @@ select {
 
   border-radius: 50%;
 
-  /* BLUE — not green */
+  /* BLUE â€” not green */
   background: #4b91b8;
 }
 
@@ -1110,7 +1110,7 @@ select {
 }
 
 
-/* LOW — GREEN */
+/* LOW â€” GREEN */
 
 .priority-low {
   background: var(--low-bg);
@@ -1618,7 +1618,7 @@ select {
 }
 
 /* =========================================================
-   VIGILANT — DASHBOARD REFINEMENT
+   VIGILANT â€” DASHBOARD REFINEMENT
    Visual polish only. Existing functionality preserved.
    ========================================================= */
 
@@ -1796,7 +1796,7 @@ select {
 
 
 /* =========================================================
-   HIGH PRIORITY ANALYSIS — TOP CONTRIBUTING PARAMETERS
+   HIGH PRIORITY ANALYSIS â€” TOP CONTRIBUTING PARAMETERS
    ========================================================= */
 
 .activity-panel {

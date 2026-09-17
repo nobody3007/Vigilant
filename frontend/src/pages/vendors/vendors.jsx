@@ -308,7 +308,7 @@ function Vendors() {
                       ) &&
                       vendor.departments.length > 0
                         ? vendor.departments.join(', ')
-                        : '—'}
+                        : 'â€”'}
 
                     </div>
 

@@ -519,7 +519,7 @@ function Dashboard() {
 
                         <span>
                           {tender.department}
-                          {' · '}
+                          {' Â· '}
                           {tender.location}
                         </span>
 

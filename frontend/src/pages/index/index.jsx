@@ -35,7 +35,7 @@ function Home() {
             onClick={() => navigate("/dashboard")}
           >
             Dashboard
-            <span>↗</span>
+            <span>â†—</span>
           </button>
 
           <button
@@ -91,7 +91,7 @@ function Home() {
                 onClick={() => navigate("/dashboard")}
               >
                 <span>Open Dashboard</span>
-                <span>→</span>
+                <span>â†’</span>
               </button>
 
             </div>
@@ -112,7 +112,7 @@ function Home() {
           </div>
 
 
-          {/* RIGHT SIDE — PRODUCT PREVIEW */}
+          {/* RIGHT SIDE â€” PRODUCT PREVIEW */}
 
           <div className="hero-preview">
 
@@ -226,13 +226,13 @@ function Home() {
             <div className="preview-footer">
 
               <span>
-                Signals → context → investigation
+                Signals â†’ context â†’ investigation
               </span>
 
               <button
                 onClick={() => navigate("/investigations")}
               >
-                View queue →
+                View queue â†’
               </button>
 
             </div>

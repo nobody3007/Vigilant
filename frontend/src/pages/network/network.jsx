@@ -399,7 +399,7 @@ function Network() {
 
           <div className="network-search">
 
-            <span>⌕</span>
+            <span>âŒ•</span>
 
             <input
               value={search}
@@ -553,7 +553,7 @@ function Network() {
                   <button
                     onClick={() => setSelectedNode(null)}
                   >
-                    ×
+                    Ã—
                   </button>
 
                 </div>
