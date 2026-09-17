@@ -15,8 +15,8 @@ function Vendors() {
   // Use local FastAPI while developing.
   // Use deployed FastAPI for Vercel / other devices.
   const API_URL = import.meta.env.DEV
-  ? 'http://127.0.0.1:8000'
-  : 'https://vigilant-6sc2.vercel.app'
+    ? 'http://127.0.0.1:8000'
+    : 'https://vigilant-6sc2.vercel.app'
 
   // Reset to first page when search changes
   useEffect(() => {
@@ -98,18 +98,18 @@ function Vendors() {
     const number = Number(value || 0)
 
     if (number >= 10000000) {
-      return `?${(
+      return `Rs. ${(
         number / 10000000
       ).toFixed(2)} Cr`
     }
 
     if (number >= 100000) {
-      return `?${(
+      return `Rs. ${(
         number / 100000
       ).toFixed(2)} L`
     }
 
-    return `?${number.toLocaleString('en-IN')}`
+    return `Rs. ${number.toLocaleString('en-IN')}`
   }
 
   return (
@@ -455,4 +455,3 @@ function Vendors() {
 }
 
 export default Vendors
-

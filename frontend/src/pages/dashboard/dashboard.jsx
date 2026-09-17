@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+﻿import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 
 import Sidebar from '../../components/Sidebar'
@@ -68,7 +68,7 @@ function Dashboard() {
 
   const money = (value) => {
     const n = Number(value || 0)
-    return `?${(n / 10000000).toFixed(2)} Cr`
+    return `Rs. ${(n / 10000000).toFixed(2)} Cr`
   }
 
   return (

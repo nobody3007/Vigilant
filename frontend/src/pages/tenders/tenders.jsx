@@ -124,14 +124,14 @@ function Tenders() {
     const number = Number(value || 0)
 
     if (number >= 10000000) {
-      return `₹${(number / 10000000).toFixed(2)} Cr`
+    return `Rs. ${(number / 10000000).toFixed(2)} Cr`
     }
 
     if (number >= 100000) {
-      return `₹${(number / 100000).toFixed(2)} L`
+  return `Rs. ${(number / 100000).toFixed(2)} L`
     }
 
-    return `₹${number.toLocaleString('en-IN')}`
+    return `Rs. ${number.toLocaleString('en-IN')}`
   }
 
   // Generate page numbers
