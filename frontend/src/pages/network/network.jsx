@@ -1,4 +1,4 @@
-﻿import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   ReactFlow,
@@ -20,7 +20,7 @@ const graphNodes = [
       label: 'Apex Infrastructure Ltd.',
       id: 'VND-00482',
       type: 'VENDOR',
-      meta: '7 awards &middot; ₹42.6 Cr',
+      meta: '7 awards &middot; ?42.6 Cr',
       risk: 'HIGH',
     },
   },
@@ -32,7 +32,7 @@ const graphNodes = [
       label: 'BuildRight Contractors',
       id: 'VND-00317',
       type: 'VENDOR',
-      meta: '5 awards &middot; ₹28.1 Cr',
+      meta: '5 awards &middot; ?28.1 Cr',
       risk: 'MEDIUM',
     },
   },
@@ -44,7 +44,7 @@ const graphNodes = [
       label: 'Road Infrastructure Package',
       id: 'TDR-10842',
       type: 'TENDER',
-      meta: '₹18.4 Cr',
+      meta: '?18.4 Cr',
       risk: 'HIGH',
     },
   },
@@ -56,7 +56,7 @@ const graphNodes = [
       label: 'Highway Maintenance Package',
       id: 'TDR-10791',
       type: 'TENDER',
-      meta: '₹11.7 Cr',
+      meta: '?11.7 Cr',
       risk: 'MEDIUM',
     },
   },
@@ -80,7 +80,7 @@ const graphNodes = [
       label: 'Eastern Infra Systems',
       id: 'VND-00182',
       type: 'VENDOR',
-      meta: '4 awards &middot; ₹19.4 Cr',
+      meta: '4 awards &middot; ?19.4 Cr',
       risk: 'MEDIUM',
     },
   },
@@ -92,7 +92,7 @@ const graphNodes = [
       label: 'Road Infrastructure Contract',
       id: 'CTR-00981',
       type: 'CONTRACT',
-      meta: '₹18.4 Cr',
+      meta: '?18.4 Cr',
       risk: 'HIGH',
     },
   },
@@ -399,7 +399,7 @@ function Network() {
 
           <div className="network-search">
 
-            <span>âŒ•</span>
+            <span>⌕</span>
 
             <input
               value={search}
@@ -553,7 +553,7 @@ function Network() {
                   <button
                     onClick={() => setSelectedNode(null)}
                   >
-                    Ã—
+                    ×
                   </button>
 
                 </div>
@@ -640,3 +640,4 @@ function Network() {
 }
 
 export default Network
+

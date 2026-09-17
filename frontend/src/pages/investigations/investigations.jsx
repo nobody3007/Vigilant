@@ -1,4 +1,4 @@
-﻿import { useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 
 import Sidebar from '../../components/Sidebar'
@@ -59,7 +59,7 @@ function Investigations() {
         params.set('sortBy', sortBy)
 
         const response = await fetch(
-          `http://127.0.0.1:8000/api/investigations?${params.toString()}`
+          `https://vigilant-6sc2.vercel.app/api/investigations?${params.toString()}`
         )
 
         if (!response.ok) {
@@ -659,4 +659,5 @@ function Investigations() {
 export default Investigations
 
 
+
 

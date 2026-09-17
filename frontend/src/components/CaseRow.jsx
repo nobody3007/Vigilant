@@ -1,4 +1,4 @@
-﻿import PriorityBadge from './PriorityBadge'
+import PriorityBadge from './PriorityBadge'
 
 function CaseRow({ caseData, onClick }) {
   return (
@@ -31,3 +31,4 @@ function CaseRow({ caseData, onClick }) {
 }
 
 export default CaseRow
+

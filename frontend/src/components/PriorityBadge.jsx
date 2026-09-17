@@ -1,4 +1,4 @@
-﻿function PriorityBadge({ priority }) {
+function PriorityBadge({ priority }) {
   return (
     <span className={`priority-badge priority-${priority.toLowerCase()}`}>
       <span className="priority-dot" />
@@ -8,3 +8,4 @@
 }
 
 export default PriorityBadge
+

@@ -1,4 +1,4 @@
-﻿import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 
 import './case.css'
@@ -26,10 +26,10 @@ function Case() {
         const [tenderResponse, evidenceResponse] =
           await Promise.all([
             fetch(
-              `http://127.0.0.1:8000/api/tenders/${tenderId}`
+              `https://vigilant-6sc2.vercel.app/api/tenders/${tenderId}`
             ),
             fetch(
-              `http://127.0.0.1:8000/api/tenders/${tenderId}/evidence`
+              `https://vigilant-6sc2.vercel.app/api/tenders/${tenderId}/evidence`
             ),
           ])
 
@@ -919,4 +919,5 @@ function Case() {
 }
 
 export default Case
+
 

@@ -1,4 +1,4 @@
-﻿function Topbar({ activePage, onAddTender }) {
+function Topbar({ activePage, onAddTender }) {
   const pageTitles = {
     dashboard: {
       title: 'Investigation Overview',
@@ -53,4 +53,5 @@
 }
 
 export default Topbar
+
 

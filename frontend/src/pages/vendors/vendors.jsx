@@ -1,4 +1,4 @@
-﻿import { useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 import Sidebar from '../../components/Sidebar'
 import Topbar from '../../components/Topbar'
 import './vendors.css'
@@ -15,7 +15,7 @@ function Vendors() {
   // Use local FastAPI while developing.
   // Use deployed FastAPI for Vercel / other devices.
   const API_URL = import.meta.env.DEV
-    ? 'http://127.0.0.1:8000'
+    ? 'https://vigilant-6sc2.vercel.app'
     : 'https://vigilant-6sc2.vercel.app'
 
   // Reset to first page when search changes
@@ -98,18 +98,18 @@ function Vendors() {
     const number = Number(value || 0)
 
     if (number >= 10000000) {
-      return `₹${(
+      return `?${(
         number / 10000000
       ).toFixed(2)} Cr`
     }
 
     if (number >= 100000) {
-      return `₹${(
+      return `?${(
         number / 100000
       ).toFixed(2)} L`
     }
 
-    return `₹${number.toLocaleString('en-IN')}`
+    return `?${number.toLocaleString('en-IN')}`
   }
 
   return (
@@ -308,7 +308,7 @@ function Vendors() {
                       ) &&
                       vendor.departments.length > 0
                         ? vendor.departments.join(', ')
-                        : '—'}
+                        : '�'}
 
                     </div>
 

@@ -1,4 +1,4 @@
-﻿import { useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 
 import Sidebar from '../../components/Sidebar'
@@ -25,7 +25,7 @@ function Evidence() {
 
   useEffect(() => {
     fetch(
-      'http://127.0.0.1:8000/api/tenders?limit=20'
+      'https://vigilant-6sc2.vercel.app/api/tenders?limit=20'
     )
       .then((response) => {
         if (!response.ok) {
@@ -91,7 +91,7 @@ function Evidence() {
 
       try {
         const response = await fetch(
-          `http://127.0.0.1:8000/api/tenders/${encodeURIComponent(
+          `https://vigilant-6sc2.vercel.app/api/tenders/${encodeURIComponent(
             selectedId
           )}/evidence`
         )
@@ -867,4 +867,5 @@ export default Evidence
 
 
 
+
 

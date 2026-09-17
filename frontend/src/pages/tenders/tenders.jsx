@@ -1,4 +1,4 @@
-﻿import { useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 
 import Sidebar from '../../components/Sidebar'
@@ -20,7 +20,7 @@ function Tenders() {
   // Local backend during development,
   // deployed backend when running on Vercel.
   const API_URL = import.meta.env.DEV
-    ? 'http://127.0.0.1:8000'
+    ? 'https://vigilant-6sc2.vercel.app'
     : 'https://vigilant-6sc2.vercel.app'
 
   useEffect(() => {
@@ -106,14 +106,14 @@ function Tenders() {
     const number = Number(value || 0)
 
     if (number >= 10000000) {
-      return `₹${(number / 10000000).toFixed(2)} Cr`
+      return `?${(number / 10000000).toFixed(2)} Cr`
     }
 
     if (number >= 100000) {
-      return `₹${(number / 100000).toFixed(2)} L`
+      return `?${(number / 100000).toFixed(2)} L`
     }
 
-    return `₹${number.toLocaleString('en-IN')}`
+    return `?${number.toLocaleString('en-IN')}`
   }
 
   return (

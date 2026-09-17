@@ -1,9 +1,9 @@
-﻿export const cases = [
+export const cases = [
   {
     id: 'INV-0241',
     signal: 'Repeated award pattern',
     department: 'Public Works',
-    value: '₹18.4 Cr',
+    value: '?18.4 Cr',
     priority: 'High',
     score: 87,
   },
@@ -11,7 +11,7 @@
     id: 'INV-0238',
     signal: 'Unusual bid pricing',
     department: 'Health Services',
-    value: '₹7.2 Cr',
+    value: '?7.2 Cr',
     priority: 'High',
     score: 81,
   },
@@ -19,7 +19,7 @@
     id: 'INV-0235',
     signal: 'Vendor relationship',
     department: 'Transport',
-    value: '₹4.8 Cr',
+    value: '?4.8 Cr',
     priority: 'Medium',
     score: 64,
   },
@@ -27,7 +27,7 @@
     id: 'INV-0231',
     signal: 'Participation pattern',
     department: 'Education',
-    value: '₹2.6 Cr',
+    value: '?2.6 Cr',
     priority: 'Medium',
     score: 58,
   },
@@ -62,28 +62,28 @@ export const tenders = [
     title: 'Road Infrastructure Package',
     department: 'Public Works',
     status: 'Under Review',
-    value: '₹18.4 Cr',
+    value: '?18.4 Cr',
   },
   {
     id: 'TDR-10837',
     title: 'Medical Equipment Supply',
     department: 'Health Services',
     status: 'Analyzed',
-    value: '₹7.2 Cr',
+    value: '?7.2 Cr',
   },
   {
     id: 'TDR-10831',
     title: 'Fleet Maintenance Services',
     department: 'Transport',
     status: 'Analyzed',
-    value: '₹4.8 Cr',
+    value: '?4.8 Cr',
   },
   {
     id: 'TDR-10826',
     title: 'School Equipment Procurement',
     department: 'Education',
     status: 'Analyzed',
-    value: '₹2.6 Cr',
+    value: '?2.6 Cr',
   },
 ]
 
@@ -113,3 +113,4 @@ export const signalDistribution = [
     priority: 'Medium',
   },
 ]
+

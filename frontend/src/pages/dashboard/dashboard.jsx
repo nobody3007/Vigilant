@@ -1,4 +1,4 @@
-﻿import { useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 
 import Sidebar from '../../components/Sidebar'
@@ -14,7 +14,7 @@ function Dashboard() {
 
   useEffect(() => {
     const API_URL = import.meta.env.DEV
-      ? 'http://127.0.0.1:8000'
+      ? 'https://vigilant-6sc2.vercel.app'
       : ''
 
     fetch(`${API_URL}/api/dashboard`)
@@ -68,7 +68,7 @@ function Dashboard() {
 
   const money = (value) => {
     const n = Number(value || 0)
-    return `₹${(n / 10000000).toFixed(2)} Cr`
+    return `?${(n / 10000000).toFixed(2)} Cr`
   }
 
   return (
@@ -192,7 +192,7 @@ function Dashboard() {
                     navigate('/investigations')
                   }
                 >
-                  View all investigations →
+                  View all investigations ?
                 </button>
 
               </div>
@@ -460,7 +460,7 @@ function Dashboard() {
                     navigate('/tenders')
                   }
                 >
-                  View all →
+                  View all ?
                 </button>
 
               </div>
@@ -519,7 +519,7 @@ function Dashboard() {
 
                         <span>
                           {tender.department}
-                          {' · '}
+                          {' � '}
                           {tender.location}
                         </span>
 
@@ -582,7 +582,7 @@ function Dashboard() {
                     navigate('/evidence')
                   }
                 >
-                  Evidence →
+                  Evidence ?
                 </button>
 
               </div>

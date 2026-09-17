@@ -1,4 +1,4 @@
-﻿function StatCard({ label, value, description, index }) {
+function StatCard({ label, value, description, index }) {
   return (
     <div className="stat-card">
       <div className="stat-card-top">
@@ -18,3 +18,4 @@
 }
 
 export default StatCard
+
